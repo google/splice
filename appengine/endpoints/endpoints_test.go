@@ -29,9 +29,9 @@ import (
 
 	"google.golang.org/appengine/aetest"
 	"google.golang.org/appengine"
-	"splice/appengine/server"
-	"splice/appengine/validators"
-	"splice/models"
+	"github.com/google/splice/appengine/server"
+	"github.com/google/splice/appengine/validators"
+	"github.com/google/splice/models"
 )
 
 const (

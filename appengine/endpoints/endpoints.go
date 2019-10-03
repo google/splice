@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"os"
 
-	"splice/appengine/validators"
+	"github.com/google/splice/appengine/validators"
 	"google.golang.org/appengine/log"
 )
 

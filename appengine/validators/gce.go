@@ -35,8 +35,8 @@ import (
 	"google.golang.org/appengine/log"
 	"google.golang.org/appengine/urlfetch"
 	"gopkg.in/square/go-jose.v2/jwt"
-	"splice/appengine/server"
-	"splice/models"
+	"github.com/google/splice/appengine/server"
+	"github.com/google/splice/models"
 )
 
 const (

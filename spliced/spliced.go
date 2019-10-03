@@ -35,14 +35,14 @@ import (
 	"fmt"
 	"time"
 
-	metric "splice/spliced/metric"
+	metric "github.com/google/splice/spliced/metric"
 	"cloud.google.com/go/datastore"
-	"splice/models"
-	"splice/shared/certs"
-	"splice/shared/crypto"
-	"splice/shared/provisioning"
-	"splice/spliced/metric/tracker"
-	"splice/spliced/pubsub"
+	"github.com/google/splice/models"
+	"github.com/google/splice/shared/certs"
+	"github.com/google/splice/shared/crypto"
+	"github.com/google/splice/shared/provisioning"
+	"github.com/google/splice/spliced/metric/tracker"
+	"github.com/google/splice/spliced/pubsub"
 )
 
 var (

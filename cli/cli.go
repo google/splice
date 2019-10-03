@@ -33,13 +33,13 @@ import (
 	"time"
 
 
-	appclient "splice/cli/appclient"
+	appclient "github.com/google/splice/cli/appclient"
 	"github.com/google/certtostore"
-	"splice/appengine/server"
-	"splice/models"
-	"splice/shared/certs"
-	metadata "splice/shared/crypto"
-	"splice/shared/provisioning"
+	"github.com/google/splice/appengine/server"
+	"github.com/google/splice/models"
+	"github.com/google/splice/shared/certs"
+	metadata "github.com/google/splice/shared/crypto"
+	"github.com/google/splice/shared/provisioning"
 )
 
 const (

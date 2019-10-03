@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
-	"splice/models"
+	"github.com/google/splice/models"
 )
 
 func TestStartTx(t *testing.T) {

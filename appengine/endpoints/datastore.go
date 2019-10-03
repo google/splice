@@ -24,8 +24,8 @@ import (
 
 	"google.golang.org/appengine"
 	"cloud.google.com/go/datastore"
-	"splice/appengine/server"
-	"splice/models"
+	"github.com/google/splice/appengine/server"
+	"github.com/google/splice/models"
 )
 
 // Client is a datastore client that includes transaction

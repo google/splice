@@ -37,10 +37,10 @@ import (
 	"google.golang.org/appengine/aetest"
 	"google.golang.org/appengine"
 	"github.com/dgrijalva/jwt-go"
-	"splice/appengine/server"
-	"splice/cli/gce"
-	"splice/models"
-	"splice/shared/certs"
+	"github.com/google/splice/appengine/server"
+	"github.com/google/splice/cli/gce"
+	"github.com/google/splice/models"
+	"github.com/google/splice/shared/certs"
 )
 
 const (

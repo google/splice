@@ -22,7 +22,7 @@ package main
 
 import (
 	http "net/http"
-	"splice/appengine/endpoints"
+	"github.com/google/splice/appengine/endpoints"
 )
 
 func init() {

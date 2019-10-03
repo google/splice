@@ -20,8 +20,8 @@ package models
 import (
 	"time"
 
-	"splice/appengine/server"
-	"splice/cli/gce"
+	"github.com/google/splice/appengine/server"
+	"github.com/google/splice/cli/gce"
 )
 
 // Request Datastore Field Values

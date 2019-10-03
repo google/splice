@@ -33,9 +33,9 @@ import (
 	"google.golang.org/appengine/log"
 	"google.golang.org/api/pubsub/v1"
 	"golang.org/x/oauth2/google"
-	"splice/appengine/server"
-	basic "splice/appengine/validators"
-	"splice/models"
+	"github.com/google/splice/appengine/server"
+	basic "github.com/google/splice/appengine/validators"
+	"github.com/google/splice/models"
 )
 
 // AttendedRequestHandler implements http.Handler for user interactive joins.

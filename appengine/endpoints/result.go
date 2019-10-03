@@ -26,8 +26,8 @@ import (
 
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/log"
-	"splice/appengine/server"
-	"splice/models"
+	"github.com/google/splice/appengine/server"
+	"github.com/google/splice/models"
 )
 
 // ResultHandler is a custom http handler that services domain join

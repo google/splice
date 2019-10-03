@@ -23,8 +23,8 @@ import (
 	"errors"
 	"fmt"
 
-	"splice/appengine/server"
-	"splice/models"
+	"github.com/google/splice/appengine/server"
+	"github.com/google/splice/models"
 )
 
 // Validator performs metadata checking for requests.

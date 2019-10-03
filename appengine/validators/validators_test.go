@@ -20,8 +20,8 @@ import (
 	"context"
 	"testing"
 
-	"splice/appengine/server"
-	"splice/models"
+	"github.com/google/splice/appengine/server"
+	"github.com/google/splice/models"
 )
 
 func TestBasicValidatorSuccess(t *testing.T) {
