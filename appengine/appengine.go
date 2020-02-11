@@ -22,6 +22,7 @@ package main
 
 import (
 	http "net/http"
+	"google.golang.org/appengine"
 	"github.com/google/splice/appengine/endpoints"
 )
 
@@ -30,4 +31,8 @@ func init() {
 	http.Handle("/result", endpoints.ResultHandler(endpoints.ProcessResult))
 	http.Handle("/request-unattended", &endpoints.UnattendedRequestHandler{})
 	http.Handle("/result-unattended", endpoints.ResultHandler(endpoints.ProcessResult))
+}
+
+func main() {
+	appengine.Main()
 }
