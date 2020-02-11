@@ -97,7 +97,6 @@ func requestResponse(ctx context.Context, w http.ResponseWriter, r *http.Request
 // ProcessRequest takes a models.Request that is provided by the client,
 // and validates it. A response is provided using models.Response.
 func ProcessRequest(ctx context.Context, w http.ResponseWriter, r *http.Request, checks []basic.Validator) models.Response {
-
 	request, code, err := unmarshalRequest(r)
 	if err != nil {
 		return models.Response{
