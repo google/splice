@@ -310,7 +310,7 @@ func publishRequest(ctx context.Context, reqID string) error {
 
 	// Create topic if it doesn't exist.
 	topic, err := ps.CreateTopic(ctx, envTopic)
-	if err != nil && !strings.Contains(err.Error(), "alreadyExists") {
+	if err != nil && !strings.Contains(err.Error(), "AlreadyExists") {
 		return fmt.Errorf("failed to create topic %q: %v", envTopic, err)
 	}
 	defer topic.Stop()
