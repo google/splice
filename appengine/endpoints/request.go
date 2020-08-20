@@ -31,8 +31,7 @@ import (
 
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/log"
-	"google.golang.org/api/pubsub/v1"
-	"golang.org/x/oauth2/google"
+	"cloud.google.com/go/pubsub"
 	"github.com/google/splice/appengine/server"
 	basic "github.com/google/splice/appengine/validators"
 	"github.com/google/splice/models"
@@ -304,34 +303,24 @@ func publishRequest(ctx context.Context, reqID string) error {
 		return errors.New("PUBSUB_TOPIC environment variable not set")
 	}
 
-	// PubSub requires an http client with an oAuth token, use the
-	// default credential for our token.
-	httpClient, err := google.DefaultClient(ctx, pubsub.PubsubScope)
-	ps, err := pubsub.New(httpClient)
+	ps, err := pubsub.NewClient(ctx, envProject)
 	if err != nil {
-		return fmt.Errorf("pubsub.New(%v) returned: %v", httpClient, err)
+		return fmt.Errorf("pubsub.NewClient(%q) returned: %v", envProject, err)
 	}
 
 	// Create topic if it doesn't exist.
-	topicName := "projects/" + envProject + "/topics/" + envTopic
-	topicSvc := pubsub.NewProjectsTopicsService(ps)
-	_, err = topicSvc.Create(topicName, &pubsub.Topic{}).Do()
+	topic, err := ps.CreateTopic(ctx, envTopic)
 	if err != nil && !strings.Contains(err.Error(), "alreadyExists") {
-		return fmt.Errorf("failed to create topic %q: %v", topicName, err)
+		return fmt.Errorf("failed to create topic %q: %v", envTopic, err)
 	}
+	defer topic.Stop()
+	res := topic.Publish(ctx, &pubsub.Message{Data: []byte(reqID)})
 
-	msg := &pubsub.PubsubMessage{
-		Data: base64.StdEncoding.EncodeToString([]byte(reqID)),
-	}
-	publishReq := &pubsub.PublishRequest{
-		Messages: []*pubsub.PubsubMessage{msg},
-	}
-
-	response, err := topicSvc.Publish(topicName, publishReq).Do()
+	msgID, err := res.Get(ctx)
 	if err != nil {
-		return fmt.Errorf("publishRequest error publishing to topic %s: %v, %v", topicName, response, err)
+		return fmt.Errorf("topic.Publish error publishing to topic %s: %v, %v", envTopic, res, err)
 	}
 
-	log.Infof(ctx, "request id %q published with msg id '%s'", reqID, response.MessageIds[0])
+	log.Infof(ctx, "request id %q published with msg id %q", reqID, msgID)
 	return nil
 }
