@@ -67,8 +67,8 @@ The datastore maintains all state for active requests.
 
 ### Deployment
 
-Splice App is written in Go. See "[Deploying a Go
-App](https://cloud.google.com/appengine/docs/standard/go/tools/uploadinganapp)"
+Splice App is written in Go. See "[Building a Go
+App](https://cloud.google.com/appengine/docs/standard/go/building-app)"
 for information on how to deploy splice to App Engine in your project.
 
 ### Project Whitelist
