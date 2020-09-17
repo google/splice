@@ -44,10 +44,10 @@ import (
 )
 
 const (
-	emptyWhitelist    = ""
-	invalidWhitelist  = "projects:foobar"
-	folderInWhitelist = "projects/foobar, folder/foobaz"
-	validWhitelist    = "projects/foobar, projects/foobaz, projects/123456"
+	emptyAllowlist    = ""
+	invalidAllowlist  = "projects:foobar"
+	folderInAllowlist = "projects/foobar, folder/foobaz"
+	validAllowlist    = "projects/foobar, projects/foobaz, projects/123456"
 	fakeAudience      = "https://fake-splice.google.com/request-unattended"
 )
 
@@ -63,8 +63,8 @@ var (
 )
 
 func TestGCEValidatorSuccess(t *testing.T) {
-	if err := os.Setenv("PROJECT_WHITELIST", validWhitelist); err != nil {
-		t.Errorf("os.Setenv(%q, %q) = %v, want nil", "PROJECT_WHITELIST", validWhitelist, err)
+	if err := os.Setenv("PROJECT_ALLOWLIST", validAllowlist); err != nil {
+		t.Errorf("os.Setenv(%q, %q) = %v, want nil", "PROJECT_ALLOWLIST", validAllowlist, err)
 	}
 	ctx, err := fakeContext()
 	if err != nil {
@@ -90,7 +90,7 @@ func TestGCEValidatorSuccess(t *testing.T) {
 		out  server.StatusCode
 	}{
 		{
-			"Whitelisted Project",
+			"Allowlist Project",
 			models.Request{
 				Hostname:    "Splice1234-W",
 				GCEMetadata: gce.Metadata{ProjectID: []byte("foobar"), Identity: []byte(doc)},
@@ -128,13 +128,13 @@ func TestGCEValidatorFailure(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		whitelist string
+		allowlist string
 		in        models.Request
 		out       server.StatusCode
 	}{
 		{
-			"Non-Whitelisted Project",
-			validWhitelist,
+			"Non-Allowlist Project",
+			validAllowlist,
 			models.Request{
 				Hostname:    "Splice1234-W",
 				GCEMetadata: gce.Metadata{ProjectID: []byte("mchammer")},
@@ -142,8 +142,8 @@ func TestGCEValidatorFailure(t *testing.T) {
 			server.StatusInvalidGCEmeta,
 		},
 		{
-			"Non-Whitelisted Folder",
-			validWhitelist,
+			"Non-Allowlist Folder",
+			validAllowlist,
 			models.Request{
 				Hostname:    "Splice1234-W",
 				GCEMetadata: gce.Metadata{ProjectID: []byte("99999")},
@@ -153,8 +153,8 @@ func TestGCEValidatorFailure(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if err := os.Setenv("PROJECT_WHITELIST", tt.whitelist); err != nil {
-			t.Errorf("os.Setenv(%q, %q) = %v, want nil", "PROJECT_WHITELIST", tt.whitelist, err)
+		if err := os.Setenv("PROJECT_ALLOWLIST", tt.allowlist); err != nil {
+			t.Errorf("os.Setenv(%q, %q) = %v, want nil", "PROJECT_ALLOWLIST", tt.allowlist, err)
 		}
 		validator, err := NewGCE(nil)
 		if err != nil {
@@ -180,17 +180,17 @@ func TestGCEValidatorFailure(t *testing.T) {
 func TestGCENewFailure(t *testing.T) {
 	tests := []struct {
 		name      string
-		whitelist string
+		allowlist string
 		want      string
 	}{
-		{"Invalid Format", invalidWhitelist, "invalid whitelist entry"},
-		{"Folder in Whitelist", folderInWhitelist, "invalid resource type"},
-		{"Empty Whitelist", emptyWhitelist, ""},
+		{"Invalid Format", invalidAllowlist, "invalid allowlist entry"},
+		{"Folder in Allowlist", folderInAllowlist, "invalid resource type"},
+		{"Empty Allowlist", emptyAllowlist, ""},
 	}
 
 	for _, tt := range tests {
-		if err := os.Setenv("PROJECT_WHITELIST", tt.whitelist); err != nil {
-			t.Errorf("os.Setenv(%q, %q) = %v, want nil", "PROJECT_WHITELIST", tt.whitelist, err)
+		if err := os.Setenv("PROJECT_ALLOWLIST", tt.allowlist); err != nil {
+			t.Errorf("os.Setenv(%q, %q) = %v, want nil", "PROJECT_ALLOWLIST", tt.allowlist, err)
 		}
 		if _, got := NewGCE(nil); !strings.Contains(got.Error(), tt.want) {
 			t.Errorf("test %q; got %s, want %s", tt.name, got.Error(), tt.want)
@@ -201,19 +201,19 @@ func TestGCENewFailure(t *testing.T) {
 func TestGCENewSuccess(t *testing.T) {
 	tests := []struct {
 		name      string
-		whitelist string
+		allowlist string
 		want      int
 	}{
-		{"Valid Whitelist", validWhitelist, 3},
-		{"Empty Whitelist", emptyWhitelist, 0},
+		{"Valid Allowlist", validAllowlist, 3},
+		{"Empty Allowlist", emptyAllowlist, 0},
 	}
 
 	for _, tt := range tests {
-		if err := os.Setenv("PROJECT_WHITELIST", tt.whitelist); err != nil {
-			t.Errorf("os.Setenv(%q, %q) = %v, want nil", "PROJECT_WHITELIST", tt.whitelist, err)
+		if err := os.Setenv("PROJECT_ALLOWLIST", tt.allowlist); err != nil {
+			t.Errorf("os.Setenv(%q, %q) = %v, want nil", "PROJECT_ALLOWLIST", tt.allowlist, err)
 		}
-		if got, err := NewGCE(nil); len(got.ProjectWhitelist) != tt.want && err == nil {
-			t.Errorf("test %q: got %d, want %d", tt.name, len(got.ProjectWhitelist), tt.want)
+		if got, err := NewGCE(nil); len(got.ProjectAllowlist) != tt.want && err == nil {
+			t.Errorf("test %q: got %d, want %d", tt.name, len(got.ProjectAllowlist), tt.want)
 		}
 	}
 }

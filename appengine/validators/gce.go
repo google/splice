@@ -49,21 +49,21 @@ var (
 	getSigningCert  = getPublicSigningCert
 	signingCertsURL = "https://www.googleapis.com/oauth2/v1/certs"
 	// Defines the resource types which are permitted for
-	// the whitelist.
+	// the allowlist.
 	defaultAllowedResources = []string{"projects"}
 )
 
 // GCEChecker implements validators.Validator and checks if the request
-// includes a GCE projectID that is on the whitelist. If ExpandedCheck is
+// includes a GCE projectID that is on the allowlist. If ExpandedCheck is
 // not nil, it can be used for secondary checks.
 type GCEChecker struct {
-	ProjectWhitelist map[string]bool
+	ProjectAllowlist map[string]bool
 	ExpandedCheck    func(context.Context, string, map[string]bool) error
 }
 
 // Check returns StatusSuccess if request metadata includes a GCE
-// project ID that is on the whitelist. If the ExpandedCheck member
-// is available, it is called to perform additional whitelist
+// project ID that is on the allowlist. If the ExpandedCheck member
+// is available, it is called to perform additional allowlist
 // checks for the project.
 func (g GCEChecker) Check(ctx context.Context, req *models.Request) (server.StatusCode, error) {
 	// Check that the token is properly signed by a Google public cert.
@@ -98,50 +98,50 @@ func (g GCEChecker) Check(ctx context.Context, req *models.Request) (server.Stat
 		req.AttemptReuse = true
 	}
 	log.Infof(ctx, "AttemptReuse returned %t in GCE request", req.AttemptReuse)
-	// Check that the verified claim's project ID is whitelisted.
+	// Check that the verified claim's project ID is in the allowlist.
 	p := "projects/" + fmt.Sprintf("%s", claims.Google.ComputeEngine.ProjectID)
-	if _, ok := g.ProjectWhitelist[p]; ok {
-		log.Infof(ctx, "Request originates from a whitelisted project: %s, proceeding.", claims.Google.ComputeEngine.ProjectID)
+	if _, ok := g.ProjectAllowlist[p]; ok {
+		log.Infof(ctx, "Request originates from an allowlist project: %s, proceeding.", claims.Google.ComputeEngine.ProjectID)
 		return server.StatusSuccess, nil
 	}
 	if g.ExpandedCheck == nil {
-		return server.StatusInvalidGCEmeta, fmt.Errorf("requesting project(%s) is not on the whitelist(%v)", p, g.ProjectWhitelist)
+		return server.StatusInvalidGCEmeta, fmt.Errorf("requesting project(%s) is not on the allowlist(%v)", p, g.ProjectAllowlist)
 	}
-	err = g.ExpandedCheck(ctx, p, g.ProjectWhitelist)
+	err = g.ExpandedCheck(ctx, p, g.ProjectAllowlist)
 	if err == nil {
-		log.Infof(ctx, "Request from project %s originates from a whitelisted ancestor, proceeding.", claims.Google.ComputeEngine.ProjectID)
+		log.Infof(ctx, "Request from project %s originates from an allowlist ancestor, proceeding.", claims.Google.ComputeEngine.ProjectID)
 		return server.StatusSuccess, nil
 	}
-	return server.StatusInvalidGCEmeta, fmt.Errorf("expanded whitelist check returned: %v", err)
+	return server.StatusInvalidGCEmeta, fmt.Errorf("expanded allowlist check returned: %v", err)
 }
 
-// NewGCE returns a GCE validator initialized with a sanitized whitelist.
+// NewGCE returns a GCE validator initialized with a sanitized allowlist.
 // The permitted resource types can be overidden by the 'allowed' parameter.
 func NewGCE(allowed []string) (GCEChecker, error) {
 	if allowed == nil {
 		allowed = defaultAllowedResources
 	}
-	w, err := ParseWhitelist(allowed)
+	w, err := ParseAllowlist(allowed)
 	if err != nil {
 		return GCEChecker{}, err
 	}
-	return GCEChecker{ProjectWhitelist: w}, nil
+	return GCEChecker{ProjectAllowlist: w}, nil
 }
 
-// ParseWhitelist parses the whitelist from the AppEngine environment
+// ParseAllowlist parses the allowlist from the AppEngine environment
 // variable into a map. Returns an error if a disallowed type is on
 // the list.
-func ParseWhitelist(allowed []string) (map[string]bool, error) {
+func ParseAllowlist(allowed []string) (map[string]bool, error) {
 	w := make(map[string]bool)
-	entries := strings.Split(os.Getenv("PROJECT_WHITELIST"), ",")
+	entries := strings.Split(os.Getenv("PROJECT_ALLOWLIST"), ",")
 	for _, resource := range entries {
 		r := strings.TrimSpace(resource)
 		p := strings.SplitN(r, "/", 2)
 		if len(p) != 2 {
-			return nil, fmt.Errorf("invalid whitelist entry: %s", resource)
+			return nil, fmt.Errorf("invalid allowlist entry: %s", resource)
 		}
 		if !isAllowed(p[0], allowed) {
-			return nil, fmt.Errorf("invalid resource type(%s), only types(%v) are supported for whitelisting", p[0], allowed)
+			return nil, fmt.Errorf("invalid resource type(%s), only types(%v) are supported in the allowlist", p[0], allowed)
 		}
 		w[r] = true
 	}

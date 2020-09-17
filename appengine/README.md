@@ -71,10 +71,10 @@ Splice App is written in Go. See "[Deploying a Go
 App](https://cloud.google.com/appengine/docs/standard/go/tools/uploadinganapp)"
 for information on how to deploy splice to App Engine in your project.
 
-### Project Whitelist
+### Project Allowlist
 
 When used with the -gce flag, the Splice CLI will submit GCE [identity metadata](https://cloud.google.com/compute/docs/instances/verifying-instance-identity) with its request to Splice App for validation. This allows splice to restrict incoming requests to a verifiable list of authorized App Engine projects.
 
-The project whitelist is contained in app.yaml.
+The project allowlist is contained in app.yaml.
 
 
