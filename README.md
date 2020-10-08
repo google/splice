@@ -1,5 +1,8 @@
 # Splice
 
+[![CLI Tests](https://github.com/google/splice/workflows/CLI%20Tests/badge.svg)](https://github.com/google/splice/actions?query=workflow%3A%22CLI+Tests%22)
+[![SpliceD Tests](https://github.com/google/splice/workflows/SpliceD%20Tests/badge.svg)](https://github.com/google/splice/actions?query=workflow%3A%22SpliceD+Tests%22)
+
 Splice is an infrastructure service which allows Windows instances to join a
 Microsoft Active Directory domain without direct line of sight to a domain
 controller. It also supports flexible user auth and complex join request
