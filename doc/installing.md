@@ -36,7 +36,7 @@ is now joined to the domain.
 
 ## SpliceD Setup
 
-Review the [SpliceD README](../appengine/README.md) for detailed information.
+Review the [SpliceD README](../spliced/README.md) for detailed information.
 
 1.  Build and configure a dedicated Windows host to run SpliceD. This instance
     must already be domain joined.
