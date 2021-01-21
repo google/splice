@@ -125,11 +125,11 @@ func usage(errmsg string) {
 
 func main() {
 
-	isIntSess, err := svc.IsAnInteractiveSession()
+	isSvc, err := svc.IsWindowsService()
 	if err != nil {
 		log.Fatalf("failed to determine if we are running in an interactive session: %v", err)
 	}
-	if !isIntSess {
+	if isSvc {
 		runService(svcName, false)
 		return
 	}
