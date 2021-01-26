@@ -17,7 +17,7 @@ limitations under the License.
 package validators
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"testing"
 
 	"github.com/google/splice/appengine/server"

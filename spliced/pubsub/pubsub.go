@@ -18,7 +18,7 @@ limitations under the License.
 package pubsub
 
 import (
-	"context"
+	"golang.org/x/net/context"
 
 	"cloud.google.com/go/pubsub"
 )

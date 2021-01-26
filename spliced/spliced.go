@@ -31,7 +31,7 @@ sent directly to EventLog.
 package main
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"fmt"
 	"time"
 
