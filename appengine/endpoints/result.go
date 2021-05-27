@@ -17,7 +17,7 @@ limitations under the License.
 package endpoints
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"

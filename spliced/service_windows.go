@@ -24,7 +24,7 @@ For debugging, run from an admin command shell with the 'debug' argument.
 package main
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"fmt"
 	"log"
 	"os"

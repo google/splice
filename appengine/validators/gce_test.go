@@ -18,7 +18,7 @@ package validators
 
 import (
 	"bytes"
-	"context"
+	"golang.org/x/net/context"
 	"crypto"
 	"crypto/sha256"
 	"crypto/x509"
