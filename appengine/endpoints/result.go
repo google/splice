@@ -54,7 +54,7 @@ func (rh ResultHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(int(server.StatusSuccess))
+	w.WriteHeader(http.StatusOK)
 	w.Write(jsonResponse)
 	log.Infof(ctx, "successfully processed response with requestID '%q' for host '%q'", resp.RequestID, resp.Hostname)
 }
