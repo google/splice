@@ -85,7 +85,7 @@ func requestResponse(ctx context.Context, w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(int(server.StatusSuccess))
+	w.WriteHeader(http.StatusOK)
 	w.Write(jsonResponse)
 
 	if resp.ErrorCode == server.StatusSuccess {
