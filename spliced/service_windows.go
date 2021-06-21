@@ -30,7 +30,6 @@ import (
 	"os"
 	"strings"
 
-
 	"golang.org/x/sys/windows/svc/debug"
 	"golang.org/x/sys/windows/svc/eventlog"
 	"golang.org/x/sys/windows/svc"
@@ -124,7 +123,6 @@ func usage(errmsg string) {
 }
 
 func main() {
-
 	isSvc, err := svc.IsWindowsService()
 	if err != nil {
 		log.Fatalf("failed to determine if we are running in an interactive session: %v", err)

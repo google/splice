@@ -32,7 +32,6 @@ import (
 	"strings"
 	"time"
 
-
 	appclient "github.com/google/splice/cli/appclient"
 	"github.com/google/certtostore"
 	"github.com/google/splice/appengine/server"
