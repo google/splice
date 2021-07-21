@@ -5,8 +5,8 @@ handles new host join requests.
 
 ## Authentication
 
-SpliceD uses [Google Application Default
-Credentials](https://developers.google.com/identity/protocols/application-default-credentials)
+SpliceD uses
+[Google Application Default Credentials](https://developers.google.com/identity/protocols/application-default-credentials)
 to interact with the Cloud Datastore. The daemon requires a provisioned service
 account with datastore privileges.
 
@@ -43,7 +43,9 @@ To install the credentials on the SpliceD server:
 Configuration is handled via the registry. Before enabling the spliced service,
 run spliced.exe from the command line to configure the application.
 
-    spliced configure -domain "domain.example.com" -instance "spliced123" -project "example-cloud-project" -topic "subscription1"
+```
+spliced configure -domain "domain.example.com" -instance "spliced123" -project "example-cloud-project" -topic "subscription1"
+```
 
 You can modify settings by re-running the configure command with one or more
 parameters and restarting the service.
