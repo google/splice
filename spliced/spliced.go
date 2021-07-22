@@ -35,7 +35,7 @@ import (
 	"fmt"
 	"time"
 
-	metric "github.com/google/splice/spliced/metric"
+	metric "github.com/google/cabbie/metrics"
 	"cloud.google.com/go/datastore"
 	"github.com/google/splice/models"
 	"github.com/google/splice/shared/certs"
@@ -48,6 +48,11 @@ import (
 var (
 	conf    appcfg
 	metrics *tracker.Tracker
+
+	// MetricRoot sets metric path for all SpliceD metrics
+	metricRoot = "/splice/metrics"
+	// MetricSvc sets platform source for metrics.
+	metricSvc = "splice"
 )
 
 // ExitEvt holds an EventLog event explaining why the goroutine had to exit.
@@ -267,22 +272,22 @@ func initMetrics() error {
 		"join-fail",
 		"join-success",
 	} {
-		m, err := metric.NewCounter(name)
+		m, err := metric.NewCounter(fmt.Sprintf("%s/%s", metricRoot, name), metricSvc)
 		if err != nil {
 			return err
 		}
-		metrics.Add(m)
+		metrics.Add(name, m)
 	}
 
 	// Gauges
 	for _, name := range []string{
 		"waiting",
 	} {
-		m, err := metric.NewGauge(name)
+		m, err := metric.NewInt(fmt.Sprintf("%s/%s", metricRoot, name), metricSvc)
 		if err != nil {
 			return err
 		}
-		metrics.Add(m)
+		metrics.Add(name, m)
 	}
 	return nil
 }

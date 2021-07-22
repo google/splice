@@ -18,23 +18,24 @@ package tracker
 
 import (
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 type TestMetric struct {
-	name  string
-	value int64
+	Name  string
+	Value int64
 }
 
 func (t *TestMetric) Increment() error { return nil }
-func (t *TestMetric) Name() string     { return t.name }
 func (t *TestMetric) Set(int64) error  { return nil }
-func (t *TestMetric) Value() int64     { return t.value }
 
 func TestAdd(t *testing.T) {
 	m := New()
-	m.Add(&TestMetric{name: "test1", value: 12345})
-	v := m.Get("test1").Value()
-	if v != 12345 {
-		t.Fatalf("unexpected result for metric test1: %q", v)
+	in := &TestMetric{Name: "test1", Value: 12345}
+	m.Add("test1", in)
+	out := m.Get("test1")
+	if !cmp.Equal(in, out) {
+		t.Fatalf("m.Get(test1): got %v, want %v", out, in)
 	}
 }
