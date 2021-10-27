@@ -113,11 +113,11 @@ func returnRequest(ctx context.Context, reqID string, success bool, meta *crypto
 		trans.req.Status = models.RequestStatusCompleted
 		trans.req.ResponseKey = meta.AESKey
 		trans.req.CipherNonce = meta.Nonce
-		metrics.Get("join-success").Increment()
+		metrics.Get("join_success").Increment()
 	} else {
 		trans.req.Status = models.RequestStatusFailed
 
-		metrics.Get("join-fail").Increment()
+		metrics.Get("join_fail").Increment()
 	}
 
 	trans.req.CompletionTime = time.Now().UTC()
@@ -177,18 +177,18 @@ func processRequest(req *models.Request) (crypto.Metadata, error) {
 	meta := crypto.Metadata{}
 	if err := certs.VerifyCert(req.ClientCert, req.Hostname+"."+conf.Domain, conf.CaURL, conf.CaURLPath, conf.CaOrg, conf.RootsPath, conf.VerifyCert); err != nil {
 		elog.Warning(211, fmt.Sprintf("Client verification failed: %v", err))
-		metrics.Get("failure-211").Increment()
+		metrics.Get("failure_211").Increment()
 		meta.Data = []byte(err.Error())
 		return meta, err
 	}
 
 	var err error
 	elog.Info(209, fmt.Sprintf("Attempting to join host %s to domain %s. Hostname reuse is set to %t.", req.Hostname, conf.Domain, permitReuse(req)))
-	metrics.Get("join-attempt").Increment()
+	metrics.Get("join_attempt").Increment()
 	meta.Data, err = provisioning.BinData(req.Hostname, conf.Domain, permitReuse(req))
 	if err != nil {
 		elog.Warning(207, fmt.Sprintf("Failed to join host with: %v", err))
-		metrics.Get("failure-207").Increment()
+		metrics.Get("failure_207").Increment()
 		meta.Data = []byte(err.Error())
 		return meta, err
 	}
@@ -197,14 +197,14 @@ func processRequest(req *models.Request) (crypto.Metadata, error) {
 		pub, err := certs.PublicKey(req.ClientCert)
 		if err != nil {
 			elog.Warning(212, fmt.Sprintf("Unable to obtain certificate public key: %v", err))
-			metrics.Get("failure-212").Increment()
+			metrics.Get("failure_212").Increment()
 			meta.Data = []byte(err.Error())
 			return meta, err
 		}
 
 		if err := meta.Encrypt(pub); err != nil {
 			elog.Warning(210, fmt.Sprintf("encryptMeta: %v", err))
-			metrics.Get("failure-210").Increment()
+			metrics.Get("failure_210").Increment()
 			meta.Data = []byte(err.Error())
 			return meta, err
 		}
@@ -226,7 +226,7 @@ func Run(ctx context.Context) ExitEvt {
 		reqID, err := pubsub.NewJoinRequest(ctx, client, conf.Topic)
 		metrics.Get("waiting").Set(0)
 		if err != nil {
-			metrics.Get("failure-205").Increment()
+			metrics.Get("failure_205").Increment()
 			elog.Error(205, fmt.Sprintf("%v", err))
 			time.Sleep(1 * time.Minute)
 			continue
@@ -236,7 +236,7 @@ func Run(ctx context.Context) ExitEvt {
 		req, err := claimRequest(ctx, reqID)
 		if err != nil {
 			elog.Error(206, fmt.Sprintf("%v", err))
-			metrics.Get("failure-206").Increment()
+			metrics.Get("failure_206").Increment()
 			continue
 		}
 
@@ -248,7 +248,7 @@ func Run(ctx context.Context) ExitEvt {
 
 		if err = returnRequest(ctx, reqID, success, &meta); err != nil {
 			elog.Error(208, fmt.Sprintf("%v", err))
-			metrics.Get("failure-208").Increment()
+			metrics.Get("failure_208").Increment()
 		}
 		for i := range meta.Data {
 			meta.Data[i] = 0
@@ -261,16 +261,16 @@ func initMetrics() error {
 
 	// Counters
 	for _, name := range []string{
-		"failure-205",
-		"failure-206",
-		"failure-207",
-		"failure-208",
-		"failure-210",
-		"failure-211",
-		"failure-212",
-		"join-attempt",
-		"join-fail",
-		"join-success",
+		"failure_205",
+		"failure_206",
+		"failure_207",
+		"failure_208",
+		"failure_210",
+		"failure_211",
+		"failure_212",
+		"join_attempt",
+		"join_fail",
+		"join_success",
 	} {
 		m, err := metric.NewCounter(fmt.Sprintf("%s/%s", metricRoot, name), metricSvc)
 		if err != nil {
