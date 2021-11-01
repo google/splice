@@ -51,13 +51,13 @@ func (m *winSvc) Execute(args []string, r <-chan svc.ChangeRequest, changes chan
 
 	changes <- svc.Status{State: svc.StartPending}
 	if err := Init(); err != nil {
-		elog.Error(203, fmt.Sprintf("Failure starting service. %v", err))
+		elog.Error(EvtErrStartup, fmt.Sprintf("Failure starting service. %v", err))
 		return
 	}
 	go func() {
 		errch <- Run(ctx)
 	}()
-	elog.Info(103, "Service started.")
+	elog.Info(EvtStartup, "Service started.")
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
@@ -79,7 +79,7 @@ loop:
 			case svc.Continue:
 				changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 			default:
-				elog.Error(202, fmt.Sprintf("Unexpected control request #%d", c))
+				elog.Error(EvtErrMisc, fmt.Sprintf("Unexpected control request #%d", c))
 			}
 		}
 	}
@@ -99,17 +99,17 @@ func runService(name string, isDebug bool) {
 	}
 	defer elog.Close()
 
-	elog.Info(100, fmt.Sprintf("Starting %s service.", name))
+	elog.Info(EvtStartup, fmt.Sprintf("Starting %s service.", name))
 	run := svc.Run
 	if isDebug {
 		run = debug.Run
 	}
 	err = run(name, &winSvc{})
 	if err != nil {
-		elog.Error(200, fmt.Sprintf("%s service failed. %v", name, err))
+		elog.Error(EvtErrMisc, fmt.Sprintf("%s service failed. %v", name, err))
 		return
 	}
-	elog.Info(101, fmt.Sprintf("%s service stopped.", name))
+	elog.Info(EvtShutdown, fmt.Sprintf("%s service stopped.", name))
 }
 
 func usage(errmsg string) {
