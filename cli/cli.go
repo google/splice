@@ -198,22 +198,12 @@ func resultPoll(c client, reqID string, clientID string) (*models.Response, erro
 func getHostCert() error {
 	var err error
 
+	// Open the local cert store. Provider generally shouldn't matter, so use Software which is ubiquitous. See comments in getHostKey.
 	store, err := certtostore.OpenWinCertStore(certtostore.ProviderMSSoftware, *certContainer, issuers, intermediates, false)
 	if err != nil {
 		return fmt.Errorf("OpenWinCertStore: %v", err)
 	}
-
-	if err = getHostKey(store); err != nil {
-		log.Printf("Trying '%s' instead...", certtostore.ProviderMSPlatform)
-	}
-	if err == nil {
-		return nil
-	}
-
-	store, err = certtostore.OpenWinCertStore(certtostore.ProviderMSPlatform, *certContainer, issuers, intermediates, false)
-	if err != nil {
-		return fmt.Errorf("OpenWinCertStore: %v", err)
-	}
+	defer store.Close()
 
 	return getHostKey(store)
 }
@@ -221,17 +211,23 @@ func getHostCert() error {
 func getHostKey(store *certtostore.WinCertStore) error {
 	var err error
 
-	decrypter, err = store.Key()
+	// Obtain the first cert matching all of container/issuers/intermediates in the store.
+	// This function is indifferent to the provider the store was opened with, as the store lists certs
+	// from all providers.
+	c, ctx, err := store.CertWithContext()
+	if err != nil {
+		return fmt.Errorf("cert: %v", err)
+	}
+	defer certtostore.FreeCertContext(ctx)
+	cert = c.Raw
+
+	// Obtain the private key from the cert. This *should* work regardless of provider because
+	// the key is directly linked to the certificate.
+	decrypter, err = store.CertKey(ctx)
 	if err != nil {
 		log.Printf("A private key was not found in '%s'.", store.ProvName)
 		return err
 	}
-
-	c, err := store.Cert()
-	if err != nil {
-		return fmt.Errorf("cert: %v", err)
-	}
-	cert = c.Raw
 
 	return nil
 }

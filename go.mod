@@ -6,7 +6,7 @@ require (
   cloud.google.com/go/datastore v1.5.0
   cloud.google.com/go/pubsub v1.11.0
   github.com/dgrijalva/jwt-go v3.2.0+incompatible
-  github.com/google/certtostore v0.0.0-20210602065040-580766507aee
+  github.com/google/certtostore v1.0.1
   golang.org/x/net v0.0.0-20210614182718-04defd469f4e
   golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
   google.golang.org/appengine v1.6.7
