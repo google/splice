@@ -37,6 +37,8 @@ const (
 	EvtJoinAttempt
 	// EvtJoinSuccess indicates a successful join operation
 	EvtJoinSuccess
+	// EvtJoinFailure indicates an unsuccessful join operation
+	EvtJoinFailure
 )
 
 /*
@@ -47,9 +49,17 @@ const (
 	EvtErrMisc = iota + 4000
 	// EvtErrStartup indicates an error starting the service
 	EvtErrStartup
+	// EvtErrSubscription indicates an error in subscription communication
+	EvtErrSubscription
+	// EvtErrClaim indicates an error claiming a request
+	EvtErrClaim
+	// EvtErrReturn indicates an error returning a request
+	EvtErrReturn
 	//
 	// Request-releated errors
 	//
-	// EvtShutdown indicates an error in request verification
+	// EvtErrVerification indicates an error in request verification
 	EvtErrVerification = iota + 100
+	// EvtErrEncryption indicates an error encrypting a payload
+	EvtErrEncryption
 )

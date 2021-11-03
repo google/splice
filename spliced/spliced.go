@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 /*
@@ -176,18 +177,18 @@ func permitReuse(req *models.Request) bool {
 func processRequest(req *models.Request) (crypto.Metadata, error) {
 	meta := crypto.Metadata{}
 	if err := certs.VerifyCert(req.ClientCert, req.Hostname+"."+conf.Domain, conf.CaURL, conf.CaURLPath, conf.CaOrg, conf.RootsPath, conf.VerifyCert); err != nil {
-		elog.Warning(211, fmt.Sprintf("Client verification failed: %v", err))
+		elog.Warning(EvtErrVerification, fmt.Sprintf("Client verification failed: %v", err))
 		metrics.Get("failure_211").Increment()
 		meta.Data = []byte(err.Error())
 		return meta, err
 	}
 
 	var err error
-	elog.Info(209, fmt.Sprintf("Attempting to join host %s to domain %s. Hostname reuse is set to %t.", req.Hostname, conf.Domain, permitReuse(req)))
+	elog.Info(EvtJoinAttempt, fmt.Sprintf("Attempting to join host %s to domain %s. Hostname reuse is set to %t.", req.Hostname, conf.Domain, permitReuse(req)))
 	metrics.Get("join_attempt").Increment()
 	meta.Data, err = provisioning.BinData(req.Hostname, conf.Domain, permitReuse(req))
 	if err != nil {
-		elog.Warning(207, fmt.Sprintf("Failed to join host with: %v", err))
+		elog.Warning(EvtJoinFailure, fmt.Sprintf("Failed to join host with: %v", err))
 		metrics.Get("failure_207").Increment()
 		meta.Data = []byte(err.Error())
 		return meta, err
@@ -196,21 +197,21 @@ func processRequest(req *models.Request) (crypto.Metadata, error) {
 	if conf.EncryptBlob {
 		pub, err := certs.PublicKey(req.ClientCert)
 		if err != nil {
-			elog.Warning(212, fmt.Sprintf("Unable to obtain certificate public key: %v", err))
+			elog.Warning(EvtErrEncryption, fmt.Sprintf("Unable to obtain certificate public key: %v", err))
 			metrics.Get("failure_212").Increment()
 			meta.Data = []byte(err.Error())
 			return meta, err
 		}
 
 		if err := meta.Encrypt(pub); err != nil {
-			elog.Warning(210, fmt.Sprintf("encryptMeta: %v", err))
+			elog.Warning(EvtErrEncryption, fmt.Sprintf("encryptMeta: %v", err))
 			metrics.Get("failure_210").Increment()
 			meta.Data = []byte(err.Error())
 			return meta, err
 		}
 	}
 
-	elog.Info(209, fmt.Sprintf("Attempting to create or modify %q computer object in domain %q", req.Hostname, conf.Domain))
+	elog.Info(EvtJoinSuccess, fmt.Sprintf("Computer object %q joined to domain %q", req.Hostname, conf.Domain))
 	return meta, nil
 }
 
@@ -221,21 +222,21 @@ func Run(ctx context.Context) ExitEvt {
 		return ExitEvt{204, fmt.Sprintf("Failed to create client. %v", err)}
 	}
 	for {
-		elog.Info(200, "Awaiting join requests...")
+		elog.Info(EvtWaiting, "Awaiting join requests...")
 		metrics.Get("waiting").Set(1)
 		reqID, err := pubsub.NewJoinRequest(ctx, client, conf.Topic)
 		metrics.Get("waiting").Set(0)
 		if err != nil {
 			metrics.Get("failure_205").Increment()
-			elog.Error(205, fmt.Sprintf("%v", err))
+			elog.Error(EvtErrSubscription, fmt.Sprintf("%v", err))
 			time.Sleep(1 * time.Minute)
 			continue
 		}
 
-		elog.Info(200, fmt.Sprintf("NewJoinRequest: pulled message for processing, %v", reqID))
+		elog.Info(EvtNewRequest, fmt.Sprintf("NewJoinRequest: pulled message for processing, %v", reqID))
 		req, err := claimRequest(ctx, reqID)
 		if err != nil {
-			elog.Error(206, fmt.Sprintf("%v", err))
+			elog.Error(EvtErrClaim, fmt.Sprintf("%v", err))
 			metrics.Get("failure_206").Increment()
 			continue
 		}
@@ -247,7 +248,7 @@ func Run(ctx context.Context) ExitEvt {
 		}
 
 		if err = returnRequest(ctx, reqID, success, &meta); err != nil {
-			elog.Error(208, fmt.Sprintf("%v", err))
+			elog.Error(EvtErrReturn, fmt.Sprintf("%v", err))
 			metrics.Get("failure_208").Increment()
 		}
 		for i := range meta.Data {
@@ -303,7 +304,7 @@ func Init() error {
 	if err != nil {
 		return fmt.Errorf("Could not obtain configuration from registry. %v", err)
 	}
-	elog.Info(201, fmt.Sprintf(
+	elog.Info(EvtConfiguration, fmt.Sprintf(
 		"Application configured from registry.\n\n"+
 			"Domain: %v\n"+
 			"Svc name: %v\n"+
