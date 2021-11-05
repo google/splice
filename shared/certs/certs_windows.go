@@ -26,6 +26,62 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// Store holds an open connection to the certificate store.
+type Store struct {
+	handle *certtostore.WinCertStore
+}
+
+// NewStore opens a handle to the certificate store.
+func NewStore(container string, issuers, intermediates []string) (*Store, error) {
+	var s Store
+	// Open the local cert store. Provider generally shouldn't matter, so use Software which is ubiquitous. See comments in getHostKey.
+	store, err := certtostore.OpenWinCertStore(certtostore.ProviderMSSoftware, container, issuers, intermediates, false)
+	if err != nil {
+		return nil, fmt.Errorf("OpenWinCertStore: %v", err)
+	}
+	s.handle = store
+	return &s, nil
+}
+
+// Close closes the certificate store.
+func (s *Store) Close() error {
+	if s.handle != nil {
+		return s.handle.Close()
+	}
+	return nil
+}
+
+// Find attempts to populate the Certificate data from a host certificate matching the specifications.
+func (s *Store) Find() (Certificate, Context, error) {
+	ctx := Context{}
+	c := Certificate{}
+
+	// Obtain the first cert matching all of container/issuers/intermediates in the store.
+	// This function is indifferent to the provider the store was opened with, as the store lists certs
+	// from all providers.
+	crt, context, err := s.handle.CertWithContext()
+	if err != nil {
+		return c, ctx, fmt.Errorf("cert: %v", err)
+	}
+	if crt == nil {
+		return c, ctx, errors.New("no certificate found")
+	}
+	c.Cert = crt
+	ctx.Ctx = context
+
+	// Obtain the private key from the cert. This *should* work regardless of provider because
+	// the key is directly linked to the certificate.
+	key, err := s.handle.CertKey(context)
+	if err != nil {
+		log.Printf("A private key was not found in '%s'.", s.handle.ProvName)
+		return c, ctx, err
+	}
+	c.Decrypter = key
+	c.Key = key
+
+	return c, ctx, nil
+}
+
 // Context holds a context for a certificate in the Windows certificate store. It must
 // be closed once all references to the certificate are complete.
 type Context struct {
@@ -39,41 +95,4 @@ func (c *Context) Close() {
 	if c.Ctx != nil {
 		certtostore.FreeCertContext(c.Ctx)
 	}
-}
-
-// Find attempts to populate the Certificate data from a host certificate matching the specifications.
-func (c *Certificate) Find(container string, issuers, intermediates []string) (Context, error) {
-	ctx := Context{}
-
-	// Open the local cert store. Provider generally shouldn't matter, so use Software which is ubiquitous. See comments in getHostKey.
-	store, err := certtostore.OpenWinCertStore(certtostore.ProviderMSSoftware, container, issuers, intermediates, false)
-	if err != nil {
-		return ctx, fmt.Errorf("OpenWinCertStore: %v", err)
-	}
-	defer store.Close()
-
-	// Obtain the first cert matching all of container/issuers/intermediates in the store.
-	// This function is indifferent to the provider the store was opened with, as the store lists certs
-	// from all providers.
-	crt, context, err := store.CertWithContext()
-	if err != nil {
-		return ctx, fmt.Errorf("cert: %v", err)
-	}
-	if c == nil {
-		return ctx, errors.New("no certificate found")
-	}
-	c.Cert = crt
-	ctx.Ctx = context
-
-	// Obtain the private key from the cert. This *should* work regardless of provider because
-	// the key is directly linked to the certificate.
-	key, err := store.CertKey(context)
-	if err != nil {
-		log.Printf("A private key was not found in '%s'.", store.ProvName)
-		return ctx, err
-	}
-	c.Decrypter = key
-	c.Key = key
-
-	return ctx, nil
 }

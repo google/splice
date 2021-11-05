@@ -230,7 +230,14 @@ func main() {
 
 	var cert certs.Certificate
 	if len(issuers) >= 1 {
-		ctx, err := cert.Find(*certContainer, issuers, intermediates)
+		store, err := certs.NewStore(*certContainer, issuers, intermediates)
+		if err != nil {
+			log.Fatalf("error opening certificate store: %v", err)
+		}
+		defer store.Close()
+
+		var ctx certs.Context
+		cert, ctx, err = store.Find()
 		if err != nil || cert.Cert == nil || cert.Decrypter == nil {
 			log.Fatalf("error locating client certificate for issuers '%v': %v", issuers, err)
 		}
