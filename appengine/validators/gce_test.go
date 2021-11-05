@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"golang.org/x/net/context"
 	"crypto"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
@@ -72,14 +73,15 @@ func TestGCEValidatorSuccess(t *testing.T) {
 	}
 
 	getSigningCert = getTestSigningCert
+
+	c := certs.Certificate{}
 	// Signing cert for fake GCE VM Identities
-	der, priv, err := certs.GenerateSelfSignedCert("fakehost", validBefore, validAfter)
-	if err != nil {
+	if err := c.Generate("fakehost", validBefore, validAfter); err != nil {
 		t.Fatalf("generating a signing cert returned %v", err)
 	}
-	testSigningCert = der
+	testSigningCert = c.Cert.Raw
 	// A valid test GCE VM Identity Doc
-	doc, err := fakeGCEIDDoc(priv, "https:///request-unattended", expectedIssuer, "us-bogus1-a", "foobar", 1234, time.Now().Unix(), jwt.SigningMethodRS256) //NOTYPO
+	doc, err := fakeGCEIDDoc(c.Key.(*rsa.PrivateKey), "https:///request-unattended", expectedIssuer, "us-bogus1-a", "foobar", 1234, time.Now().Unix(), jwt.SigningMethodRS256) //NOTYPO
 	if err != nil {
 		t.Errorf("fakeGCEIDDoc returned %v", err)
 	}
@@ -271,12 +273,12 @@ func TestCheckSigningCert(t *testing.T) {
 	}
 	getSigningCert = getTestSigningCert
 
+	c := certs.Certificate{}
 	// Signing cert for token tests
-	der, priv, err := certs.GenerateSelfSignedCert("fakehost", validBefore, validAfter)
-	if err != nil {
+	if err := c.Generate("fakehost", validBefore, validAfter); err != nil {
 		t.Fatalf("generating a signing cert returned %v", err)
 	}
-	testSigningCert = der
+	testSigningCert = c.Cert.Raw
 
 	// Invalid Token Tests
 	tokenTests := []struct {
@@ -296,7 +298,7 @@ func TestCheckSigningCert(t *testing.T) {
 		if tt.doc == "" {
 			token := jwt.New(tt.method)
 			token.Header[tt.headerKey] = tt.headerVal
-			tt.doc, err = token.SignedString(priv)
+			tt.doc, err = token.SignedString(c.Key.(*rsa.PrivateKey))
 			if err != nil {
 				t.Errorf("token.SignedString returned %v", err)
 			}
@@ -315,27 +317,25 @@ func TestCheckSigningCert(t *testing.T) {
 		want   error
 	}{
 		{"Valid Token and Cert", validBefore, validAfter, x509.KeyUsageDigitalSignature, nil},
-		{"Invalid Cert KeyUsage", validBefore, validAfter, x509.KeyUsageCertSign, errors.New("KeyUsage")},
-		{"Expired Cert", expiredBefore, expiredAfter, x509.KeyUsageDigitalSignature, errors.New("expired")},
+		{"Invalid Cert KeyUsage", validBefore, validAfter, x509.KeyUsageCertSign, errKeyUsage},
+		{"Expired Cert", expiredBefore, expiredAfter, x509.KeyUsageDigitalSignature, errExpired},
 	}
 
 	for _, ct := range certTests {
-		der, priv, err := certs.GenerateSelfSignedCert("fakehost", ct.before, ct.after)
-		if err != nil {
+		c = certs.Certificate{}
+		if err := c.Generate("fakehost", ct.before, ct.after); err != nil {
 			t.Fatalf("generating a signing cert returned %v", err)
 		}
-		testSigningCert = der
+		testSigningCert = c.Cert.Raw
 		certKeyUsage = ct.usage
 
-		doc, err := fakeGCEIDDoc(priv, fakeAudience, expectedIssuer, "us-bogus1-a", "test.com:foo", 1234, time.Now().Unix(), jwt.SigningMethodRS256)
+		doc, err := fakeGCEIDDoc(c.Key.(*rsa.PrivateKey), fakeAudience, expectedIssuer, "us-bogus1-a", "test.com:foo", 1234, time.Now().Unix(), jwt.SigningMethodRS256)
 		if err != nil {
 			t.Errorf("fakeGCEIDDoc returned %v", err)
 		}
 
-		if _, got := checkSigningCert(ctx, doc); got != ct.want {
-			if !strings.Contains(got.Error(), ct.want.Error()) {
-				t.Errorf("test %q: got %v, want %v", ct.name, got, ct.want)
-			}
+		if _, got := checkSigningCert(ctx, doc); !errors.Is(got, ct.want) {
+			t.Errorf("test %q: got %v, want %v", ct.name, got, ct.want)
 		}
 	}
 }

@@ -210,6 +210,11 @@ type VMIDClaims struct {
 	} `json:"google"`
 }
 
+var (
+	errExpired  = errors.New("signing cert has expired")
+	errKeyUsage = errors.New("invalid signing cert KeyUsage")
+)
+
 // checkSigningCert takes a GCE identity JWT document and verifies that
 // it is signed by a public Google Certificate. It returns the claims
 // contained within the JWT. It does not perform validation on the claim
@@ -241,14 +246,14 @@ func checkSigningCert(ctx context.Context, doc string) (*VMIDClaims, error) {
 
 	// Per spec, check the signers key usage, public key and expiration
 	if signer.KeyUsage != x509.KeyUsageDigitalSignature {
-		return nil, fmt.Errorf("signing cert KeyUsage for key ID %s is %d, want %d", kid, signer.KeyUsage, x509.KeyUsageDigitalSignature)
+		return nil, fmt.Errorf("%w for key ID %s is %d, want %d", errKeyUsage, kid, signer.KeyUsage, x509.KeyUsageDigitalSignature)
 	}
 	if _, ok := signer.PublicKey.(*rsa.PublicKey); !ok {
 		return nil, fmt.Errorf("signing cert for key ID %s does not contain an RSA public key", kid)
 	}
 	t := time.Now()
 	if !t.After(signer.NotBefore) || !t.Before(signer.NotAfter) {
-		return nil, fmt.Errorf("signing cert for key ID %s expired on %v", kid, signer.NotAfter)
+		return nil, fmt.Errorf("%w for key ID %s on %v", errExpired, kid, signer.NotAfter)
 	}
 
 	// Parse the claims. Signature verification occurs during claims

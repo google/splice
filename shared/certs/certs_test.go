@@ -43,9 +43,9 @@ func TestGenerateSelfSignedCert(t *testing.T) {
 		`vertical|bar`,
 		`waytolongforcomfort`,
 	}
-
+	c := Certificate{}
 	for _, n := range invalidNames {
-		if _, _, got := GenerateSelfSignedCert(n, notBefore, notAfter); got == nil {
+		if got := c.Generate(n, notBefore, notAfter); got == nil {
 			t.Errorf("GenerateSelfSignedCert(%s) = %v, want err", n, got)
 			continue
 		}
@@ -54,19 +54,19 @@ func TestGenerateSelfSignedCert(t *testing.T) {
 	// Test valid common names
 	validNames := [...]string{`dummy.one`, `dummytwo`, `dummy-three`}
 	for _, n := range validNames {
-		if _, _, got := GenerateSelfSignedCert(n, notBefore, notAfter); got != nil {
+		if got := c.Generate(n, notBefore, notAfter); got != nil {
 			t.Errorf("GenerateSelfSignedCert(%s) = %v, want nil", n, got)
 			continue
 		}
 	}
 
 	// Test self-signed certificate validity
-	der, priv, err := GenerateSelfSignedCert("valid", notBefore, notAfter)
+	err := c.Generate("valid", notBefore, notAfter)
 	if err != nil {
 		t.Errorf("GenerateSelfSignedCert(valid) = %v", err)
 	}
 
-	cert, err := x509.ParseCertificate(der)
+	cert, err := x509.ParseCertificate(c.Cert.Raw)
 	if err != nil {
 		t.Errorf("unable to parse the generated certificate: %v", err)
 	}
@@ -74,17 +74,14 @@ func TestGenerateSelfSignedCert(t *testing.T) {
 	if cert.SerialNumber == nil {
 		t.Error("self-signed certificate is missing serial number")
 	}
-
-	if err := priv.Validate(); err != nil {
-		t.Errorf("priv.Validate() = %v", err)
-	}
 }
 
 func TestVerifyCert(t *testing.T) {
 	base := "https://dummy.nowhere.com/"
 	cn := "dummy"
+	c := Certificate{}
 	// Generate a self-signed cert in DER format to test with.
-	der, _, err := GenerateSelfSignedCert(cn, notBefore, notAfter)
+	err := c.Generate(cn, notBefore, notAfter)
 	if err != nil {
 		t.Errorf("GenerateSelfSignedCert(%s) = %v", cn, err)
 	}
@@ -96,12 +93,12 @@ func TestVerifyCert(t *testing.T) {
 
 	// test VerifyHostname
 	failure := "failure"
-	if err := VerifyCert(der, failure, base, "", "", "", true); err == nil {
+	if err := VerifyCert(c.Cert.Raw, failure, base, "", "", "", true); err == nil {
 		t.Errorf("VerifyCert(%s, %s, \"\", \"\", false) failed to catch a hostname mismatch", failure, base)
 	}
 
 	// Test bypass verification
-	if err := VerifyCert(der, cn, base, "", "", "", false); err != nil {
+	if err := VerifyCert(c.Cert.Raw, cn, base, "", "", "", false); err != nil {
 		t.Errorf("VerifyCert(%s) failed to verify a match = %v", cn, err)
 	}
 }

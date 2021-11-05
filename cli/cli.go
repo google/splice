@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 /*
 Copyright 2018 Google Inc.
 
@@ -19,9 +22,6 @@ package main
 
 import (
 	"bytes"
-	"crypto"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -67,8 +67,6 @@ var (
 	generateCert      = flag.Bool("generate_cert", false, "Generate a self-signed certificate for encryption.")
 
 	issuers, intermediates []string
-	decrypter              crypto.Decrypter
-	cert                   []byte
 )
 
 type client interface {
@@ -116,7 +114,7 @@ func post(c client, msg interface{}, addr string) (*models.Response, error) {
 
 // request posts to the splice request endpoint and returns the
 // requestID if successful or an error.
-func request(c client, clientID string) (string, error) {
+func request(c client, clientID string, cert certs.Certificate) (string, error) {
 	model := &models.ClientRequest{
 		Hostname: *myName,
 		ClientID: clientID,
@@ -132,8 +130,9 @@ func request(c client, clientID string) (string, error) {
 			return "", fmt.Errorf("error reading GCE metadata: %v", err)
 		}
 	}
+
 	if *encrypt {
-		model.ClientCert = cert
+		model.ClientCert = cert.Cert.Raw
 	}
 
 	resp, err := post(c, model, endpoint)
@@ -195,42 +194,6 @@ func resultPoll(c client, reqID string, clientID string) (*models.Response, erro
 	return nil, fmt.Errorf("retry limit (%d) exceeded", pollMaxRetries)
 }
 
-func getHostCert() error {
-	// Open the local cert store. Provider generally shouldn't matter, so use Software which is ubiquitous. See comments in getHostKey.
-	store, err := certtostore.OpenWinCertStore(certtostore.ProviderMSSoftware, *certContainer, issuers, intermediates, false)
-	if err != nil {
-		return fmt.Errorf("OpenWinCertStore: %v", err)
-	}
-	defer store.Close()
-
-	return getHostKey(store)
-}
-
-func getHostKey(store *certtostore.WinCertStore) error {
-	// Obtain the first cert matching all of container/issuers/intermediates in the store.
-	// This function is indifferent to the provider the store was opened with, as the store lists certs
-	// from all providers.
-	c, ctx, err := store.CertWithContext()
-	if err != nil {
-		return fmt.Errorf("cert: %v", err)
-	}
-	defer certtostore.FreeCertContext(ctx)
-	if c == nil {
-		return errors.New("no certificate found")
-	}
-	cert = c.Raw
-
-	// Obtain the private key from the cert. This *should* work regardless of provider because
-	// the key is directly linked to the certificate.
-	decrypter, err = store.CertKey(ctx)
-	if err != nil {
-		log.Printf("A private key was not found in '%s'.", store.ProvName)
-		return err
-	}
-
-	return nil
-}
-
 func checkFlags() error {
 	switch {
 	case *myName == "":
@@ -265,18 +228,20 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
+	var cert certs.Certificate
 	if len(issuers) >= 1 {
-		err = getHostCert()
-		if err != nil || cert == nil || decrypter == nil {
+		ctx, err := cert.Find(*certContainer, issuers, intermediates)
+		if err != nil || cert.Cert == nil || cert.Decrypter == nil {
 			log.Fatalf("error locating client certificate for issuers '%v': %v", issuers, err)
 		}
+		defer ctx.Close()
 	}
 
 	if *encrypt {
 		if *generateCert {
 			notBefore := time.Now().Add(-1 * time.Hour)
 			notAfter := time.Now().Add(time.Hour * 24 * 365 * 1)
-			cert, decrypter, err = certs.GenerateSelfSignedCert(*myName, notBefore, notAfter)
+			err = cert.Generate(*myName, notBefore, notAfter)
 			if err != nil {
 				log.Fatalf("error generating self-signed certificate: %v", err)
 			}
@@ -292,8 +257,7 @@ func main() {
 	if len(issuers) >= 1 {
 		// The SHA256 hash of the cert is used server side for client verification when
 		// certificate verification is enabled.
-		fingerprintRaw := sha256.Sum256(cert)
-		clientID = strings.TrimSuffix(base64.StdEncoding.EncodeToString(fingerprintRaw[:]), "=")
+		clientID = certs.ClientID(cert.Cert.Raw)
 	} else {
 		computer, err := certtostore.CompProdInfo()
 		if err != nil {
@@ -309,13 +273,13 @@ func main() {
 			log.Fatalf("SSO error: %v", err)
 		}
 	} else {
-		c, err = appclient.TLSClient(cert, decrypter)
+		c, err = appclient.TLSClient(cert.Cert.Raw, cert.Decrypter)
 		if err != nil {
 			log.Fatalf("error during TLS client setup: %v", err)
 		}
 	}
 
-	reqID, err := request(c, clientID)
+	reqID, err := request(c, clientID, cert)
 	if err != nil {
 		log.Fatalf("request: %v", err)
 	}
@@ -332,7 +296,7 @@ func main() {
 	}
 
 	if *encrypt {
-		meta.Data, err = meta.Decrypt(decrypter)
+		meta.Data, err = meta.Decrypt(cert.Decrypter)
 		if err != nil {
 			log.Fatalf("error decrypting metadata: %v", err)
 		}
