@@ -93,11 +93,7 @@ func (g GCEChecker) Check(ctx context.Context, req *models.Request) (server.Stat
 	if -claimAge > claimMaxAge {
 		return server.StatusInvalidGCEmeta, fmt.Errorf("identity claim issued at %v is too far (%d minutes) in the future", claims.IssuedAt, claimAge/time.Minute)
 	}
-	// Gate AttemptReuse based on this value, since sufficient controls already exist around host creation in GCE.
-	if os.Getenv("REJOIN_ALLOWED") == "true" {
-		req.AttemptReuse = true
-	}
-	log.Infof(ctx, "AttemptReuse returned %t in GCE request", req.AttemptReuse)
+
 	// Check that the verified claim's project ID is in the allowlist.
 	p := "projects/" + fmt.Sprintf("%s", claims.Google.ComputeEngine.ProjectID)
 	if _, ok := g.ProjectAllowlist[p]; ok {

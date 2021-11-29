@@ -109,15 +109,9 @@ func TestGCEValidatorSuccess(t *testing.T) {
 
 		req := &tt.in
 		want := tt.out
-		if err := os.Setenv("REJOIN_ALLOWED", "true"); err != nil {
-			t.Errorf("os.Setenv(%q, %q) = %v, want nil", "REJOIN_ALLOWED", "true", err)
-		}
 
 		if got, err := validator.Check(ctx, req); err != nil || got != want {
 			t.Errorf("test %q; got = %d, want = %d, err = %v", tt.name, got, want, err)
-		}
-		if req.AttemptReuse != true {
-			t.Errorf("AttemptReuse returned %t for test %q, want %t", req.AttemptReuse, tt.name, true)
 		}
 	}
 }
@@ -165,10 +159,6 @@ func TestGCEValidatorFailure(t *testing.T) {
 
 		req := &tt.in
 		want := tt.out
-
-		if err := os.Setenv("REJOIN_ALLOWED", "false"); err != nil {
-			t.Errorf("os.Setenv(%q, %q) = %v, want nil", "REJOIN_ALLOWED", "false", err)
-		}
 
 		if got, err := validator.Check(ctx, req); err == nil || got != want {
 			t.Errorf("test %q; got = %d, want = %d, err = %v", tt.name, got, want, err)
