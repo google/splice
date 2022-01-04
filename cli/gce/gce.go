@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	metadataRoot = "http://metadata/computeMetadata/v1"
+	metadataRoot = "http://metadata.google.internal/computeMetadata/v1"
 )
 
 func readGceMetadata(path string) ([]byte, error) {
