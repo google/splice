@@ -34,6 +34,10 @@ import (
 	"golang.org/x/sys/windows/svc/eventlog"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows"
+	"github.com/google/splice/generators"
+
+	// register generators
+	_ "github.com/google/splice/generators/prefix"
 )
 
 const svcName = "SpliceD"
@@ -152,6 +156,11 @@ func main() {
 			}
 		}
 		fmt.Println("configuration successful")
+	case "generators":
+		fmt.Println("Available generators:")
+		for _, v := range generators.List() {
+			fmt.Printf("\t%s\n", v)
+		}
 	default:
 		usage(fmt.Sprintf("invalid command %s", cmd))
 	}
