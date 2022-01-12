@@ -33,8 +33,8 @@ const (
 	RequestStatusReturned   = "Returned"
 )
 
-// ClientRequest models the allowable data that a client can
-// submit as part of a request.
+// ClientRequest models the allowable data that a client (the CLI) can
+// submit as part of a request to be joined.
 type ClientRequest struct {
 	Hostname   string
 	ClientID   string
@@ -42,9 +42,14 @@ type ClientRequest struct {
 
 	// Unattended validation
 	GCEMetadata gce.Metadata
+
+	// Generators
+	GeneratorID   string
+	GeneratorData []byte
 }
 
-// Request models a new request to join a machine to the domain.
+// Request models a new request to join a machine to the domain. This includes all
+// data the Splice App may need to track the lifecycle of a request.
 type Request struct {
 	RequestID      string
 	ClientID       string
@@ -60,11 +65,29 @@ type Request struct {
 	// Unattended validation
 	GCEMetadata gce.Metadata
 
+	//
 	// Encryption
+	//
+
 	ResponseKey []byte
 	CipherNonce []byte
 
+	//
+	// Reuse
+	//
+
 	AttemptReuse bool
+
+	//
+	// Generators
+	//
+
+	// (Optional) GeneratorID identifies the hostname generator to be used by SpliceD.
+	GeneratorID string
+
+	// (Optional) GeneratorData allows for arbitrary add-on data to be encoded by the CLI
+	// for use by SpliceD. Its use will be generator-specific.
+	GeneratorData []byte
 }
 
 // StatusQuery models a request for the status of a join.
@@ -75,7 +98,7 @@ type StatusQuery struct {
 	GCEMetadata gce.Metadata
 }
 
-// Response models the response to a client request
+// Response models the response to a client request, returned by the App to the CLI.
 type Response struct {
 	RequestID    string
 	Status       string

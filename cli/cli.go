@@ -66,6 +66,9 @@ var (
 	encrypt           = flag.Bool("encrypt", true, "Encrypt all metadata in transit.")
 	generateCert      = flag.Bool("generate_cert", false, "Generate a self-signed certificate for encryption.")
 
+	// Generator Support
+	generatorID = flag.String("generator_id", "", "The identity of a Splice name generator to be associated with the request.")
+
 	issuers, intermediates []string
 )
 
@@ -135,6 +138,10 @@ func request(c client, clientID string, cert certs.Certificate) (string, error) 
 		model.ClientCert = cert.Cert.Raw
 	}
 
+	if *generatorID != "" {
+		model.GeneratorID = *generatorID
+	}
+
 	resp, err := post(c, model, endpoint)
 	if err != nil {
 		return "", fmt.Errorf("post(%s, %q) returned %v", model, endpoint, err)
@@ -181,9 +188,11 @@ func resultPoll(c client, reqID string, clientID string) (*models.Response, erro
 		if resp.Status == models.RequestStatusFailed {
 			return resp, fmt.Errorf("domain join failed, request:%s, id:%s, status:%d %v, data: %s", reqID, clientID, resp.ErrorCode, resp.Status, resp.ResponseData)
 		}
-		if (resp.Status == models.RequestStatusCompleted) && (resp.Hostname != *myName) {
-			fmt.Printf("Result returned is for a different host, got %s, want %s.\n", resp.Hostname, *myName)
-			return resp, nil
+		if *generatorID == "" {
+			if (resp.Status == models.RequestStatusCompleted) && (resp.Hostname != *myName) {
+				fmt.Printf("Result returned is for a different host, got %s, want %s.\n", resp.Hostname, *myName)
+				return resp, nil
+			}
 		}
 		if (resp.Status == models.RequestStatusCompleted) && resp.ResponseData != nil {
 			fmt.Printf("Successfully retrieved result for host %s.\n", resp.Hostname)
@@ -196,10 +205,10 @@ func resultPoll(c client, reqID string, clientID string) (*models.Response, erro
 
 func checkFlags() error {
 	switch {
-	case *myName == "":
-		return errors.New("the name flag is required")
+	case *myName == "" && *generatorID == "":
+		return errors.New("must provide either -name or -generator_id")
 	case *serverAddr == "":
-		return errors.New("the server flag is required")
+		return errors.New("the -server flag is required")
 	case *encrypt && !*generateCert && *certIssuers == "":
 		return errors.New("-encrypt requires either -generate_cert or -cert_issuer")
 	case *encrypt && *generateCert && *certIssuers != "":
