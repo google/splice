@@ -19,6 +19,18 @@ import (
 	"sync"
 
 	"go.uber.org/atomic"
+	"github.com/pkg/errors"
+)
+
+var (
+	// RootKey is the root registry key for generator configuration
+	RootKey = `SOFTWARE\Splice\Generators`
+
+	// ErrLongName is returned in cases where a name may exceed Active Directory limits
+	ErrLongName = errors.New("names greater than 15 characters may fail to join")
+	// ErrNotConfigured indicates that a generator has not yet been configured.
+	// Try calling ConfigureAll() first.
+	ErrNotConfigured = errors.New("generator is not configured")
 )
 
 type generator interface {

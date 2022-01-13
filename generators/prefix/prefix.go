@@ -18,21 +18,69 @@ package prefix
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/google/splice/generators"
+	"github.com/google/glazier/go/registry"
+)
+
+var (
+	// ErrConfig is returned if configuration fails to load the expected values
+	ErrConfig = errors.New("unable to load configuration")
+	// ErrInvalidLength is returned if the prefix generator is misconfigured with an invalid Length parameter
+	ErrInvalidLength = errors.New("prefix generator requires a naming length greater than the specified prefix")
+	// ErrInvalidPrefix is returned if the prefix generator is misconfigured with an invalid Prefix parameter
+	ErrInvalidPrefix = errors.New("prefix generator requires a prefix string")
 )
 
 func init() {
 	generators.Register("prefix", &pf{})
 }
 
-type pf struct{}
+type pf struct {
+	configured bool
+	length     int
+	prefix     string
+}
 
 // Configure configures this generator prior to use.
 func (p *pf) Configure() error {
-	return fmt.Errorf("not implemented")
+	pre, err := registry.GetString(generators.RootKey+`\prefix`, "Prefix")
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrConfig, err)
+	}
+	p.prefix = pre
+	length, err := registry.GetInteger(generators.RootKey+`\prefix`, "Length")
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrConfig, err)
+	}
+	p.length = int(length)
+
+	if err := p.validate(); err != nil {
+		return err
+	}
+	p.configured = true
+	return nil
+}
+
+func (p *pf) validate() error {
+	switch {
+	case p.length < 1:
+		return ErrInvalidLength
+	case p.length > 15:
+		return generators.ErrLongName
+	case p.length < len(p.prefix)+1:
+		return ErrInvalidLength
+	case p.prefix == "":
+		return ErrInvalidPrefix
+	}
+	return nil
 }
 
 // Generate runs this generator. This is a placeholder.
 func (p *pf) Generate(input []byte) (string, error) {
+	if !p.configured {
+		return "", generators.ErrNotConfigured
+	}
+
 	return "", fmt.Errorf("not implemented")
 }
