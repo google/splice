@@ -16,6 +16,7 @@ package prefix
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/splice/generators"
@@ -63,6 +64,28 @@ func TestConfigure(t *testing.T) {
 		}
 		registry.Delete(regRoot, "Length")
 		registry.Delete(regRoot, "Prefix")
+	}
+}
+
+func TestGenerate(t *testing.T) {
+	p := &pf{length: 12, prefix: "splice-", configured: true}
+	out, err := p.Generate(nil)
+	if err != nil {
+		t.Errorf("produced unexpected err: %v", err)
+	}
+	if len(out) != p.length {
+		t.Errorf("generated name of invalid length: got %d, want %d", len(out), p.length)
+	}
+	if !strings.HasPrefix(out, p.prefix) {
+		t.Errorf("produced name with invalid prefix: got %s, want %s", out, p.prefix)
+	}
+}
+
+func TestGenerateUnconfigured(t *testing.T) {
+	p := &pf{length: 12, prefix: "splice-"}
+	_, err := p.Generate(nil)
+	if !errors.Is(err, generators.ErrNotConfigured) {
+		t.Errorf("produced unexpected err: got %v, want %v", err, generators.ErrNotConfigured)
 	}
 }
 

@@ -17,13 +17,21 @@ package prefix
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/google/splice/generators"
 	"github.com/google/glazier/go/registry"
 )
 
+const (
+	charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+)
+
 var (
+	randgen = rand.New(rand.NewSource(time.Now().UnixNano()))
+
 	// ErrConfig is returned if configuration fails to load the expected values
 	ErrConfig = errors.New("unable to load configuration")
 	// ErrInvalidLength is returned if the prefix generator is misconfigured with an invalid Length parameter
@@ -82,5 +90,17 @@ func (p *pf) Generate(input []byte) (string, error) {
 		return "", generators.ErrNotConfigured
 	}
 
-	return "", fmt.Errorf("not implemented")
+	// we need to generate this many characters
+	randLen := p.length - len(p.prefix)
+	if randLen < 1 {
+		return "", ErrInvalidLength
+	}
+
+	b := make([]byte, randLen)
+	for i := range b {
+		b[i] = charset[randgen.Intn(len(charset))]
+	}
+	out := fmt.Sprintf("%s%s", p.prefix, b)
+
+	return out, nil
 }
