@@ -26,6 +26,8 @@ var (
 	// RootKey is the root registry key for generator configuration
 	RootKey = `SOFTWARE\Splice\Generators`
 
+	// ErrInvalidGenerator indicates that an invalid generator name was requested
+	ErrInvalidGenerator = errors.New("invalid generator name")
 	// ErrLongName is returned in cases where a name may exceed Active Directory limits
 	ErrLongName = errors.New("names greater than 15 characters may fail to join")
 	// ErrNotConfigured indicates that a generator has not yet been configured.
@@ -80,4 +82,16 @@ func Register(name string, g generator) {
 	gens, _ := atoms.Load().(map[string]generator)
 	gens[name] = g
 	atoms.Store(gens)
+}
+
+// Run performs a hostname generation using the given generator and input.
+func Run(name string, input []byte) (string, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	gens, _ := atoms.Load().(map[string]generator)
+	g, ok := gens[name]
+	if !ok {
+		return "", ErrInvalidGenerator
+	}
+	return g.Generate(input)
 }

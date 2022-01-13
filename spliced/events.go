@@ -39,6 +39,8 @@ const (
 	EvtJoinSuccess
 	// EvtJoinFailure indicates an unsuccessful join operation
 	EvtJoinFailure
+	// EvtNameGeneration indicates a dynamic name generation event
+	EvtNameGeneration
 )
 
 /*
@@ -62,4 +64,7 @@ const (
 	EvtErrVerification = iota + 100
 	// EvtErrEncryption indicates an error encrypting a payload
 	EvtErrEncryption
+	// EvtErrNaming indicates a failure determining a hostname for a request. This
+	// could be a problem with the request or a problem with a generator.
+	EvtErrNaming
 )

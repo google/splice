@@ -33,11 +33,13 @@ package main
 
 import (
 	"golang.org/x/net/context"
+	"errors"
 	"fmt"
 	"time"
 
 	metric "github.com/google/cabbie/metrics"
 	"cloud.google.com/go/datastore"
+	"github.com/google/splice/generators"
 	"github.com/google/splice/models"
 	"github.com/google/splice/shared/certs"
 	"github.com/google/splice/shared/crypto"
@@ -169,6 +171,36 @@ func permitReuse(req *models.Request) bool {
 	return req.AttemptReuse
 }
 
+func getName(req *models.Request) (string, error) {
+	if req.Hostname != "" {
+		return req.Hostname, nil
+	}
+	if req.GeneratorID == "" {
+		return "", errors.New("request must contain either Hostname or GeneratorID")
+	}
+	elog.Info(EvtNameGeneration, fmt.Sprintf("Attempting hostname generation using generator %s for request %s.", req.GeneratorID, req.RequestID))
+	return generators.Run(req.GeneratorID, req.GeneratorData)
+}
+
+func join(req *models.Request) ([]byte, error) {
+	wantName, err := getName(req)
+	if err != nil {
+		elog.Warning(EvtErrNaming, fmt.Sprintf("Failed to determine a hostname for request %s: %v", req.RequestID, err))
+		return nil, err
+	}
+
+	elog.Info(EvtJoinAttempt, fmt.Sprintf("Attempting to join host %s to domain %s. Hostname reuse is set to %t.", wantName, conf.Domain, permitReuse(req)))
+	metrics.Get("join_attempt").Increment()
+	blob, err := provisioning.BinData(wantName, conf.Domain, permitReuse(req))
+	if err != nil {
+		elog.Warning(EvtJoinFailure, fmt.Sprintf("Failed to join host with: %v", err))
+		return nil, err
+	}
+
+	elog.Info(EvtJoinSuccess, fmt.Sprintf("Computer object %q joined to domain %q", wantName, conf.Domain))
+	return blob, nil
+}
+
 // processRequest takes a claimed request, performs any necessary
 // checks, processes it and always returns a metadata object
 // with the results. Errors in this func are considered non-fatal
@@ -183,16 +215,13 @@ func processRequest(req *models.Request) (crypto.Metadata, error) {
 		return meta, err
 	}
 
-	var err error
-	elog.Info(EvtJoinAttempt, fmt.Sprintf("Attempting to join host %s to domain %s. Hostname reuse is set to %t.", req.Hostname, conf.Domain, permitReuse(req)))
-	metrics.Get("join_attempt").Increment()
-	meta.Data, err = provisioning.BinData(req.Hostname, conf.Domain, permitReuse(req))
+	blob, err := join(req)
 	if err != nil {
-		elog.Warning(EvtJoinFailure, fmt.Sprintf("Failed to join host with: %v", err))
 		metrics.Get("failure_207").Increment()
 		meta.Data = []byte(err.Error())
 		return meta, err
 	}
+	meta.Data = blob
 
 	if conf.EncryptBlob {
 		pub, err := certs.PublicKey(req.ClientCert)
@@ -211,7 +240,6 @@ func processRequest(req *models.Request) (crypto.Metadata, error) {
 		}
 	}
 
-	elog.Info(EvtJoinSuccess, fmt.Sprintf("Computer object %q joined to domain %q", req.Hostname, conf.Domain))
 	return meta, nil
 }
 
