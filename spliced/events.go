@@ -17,7 +17,12 @@ package main
 /*
  * Internal Events
  */
+
 const (
+	//
+	// Operational events
+	//
+
 	// EvtMisc indicates that an uncategorized internal event
 	EvtMisc = iota + 2000
 	// EvtWaiting indicates the daemon has entered wait state
@@ -28,11 +33,15 @@ const (
 	EvtStartup
 	// EvtShutdown indicates SpliceD shutdown
 	EvtShutdown
+)
+
+const (
 	//
 	// Request-releated events
 	//
+
 	// EvtNewRequest indicates a receipt of a new request
-	EvtNewRequest = iota + 100
+	EvtNewRequest = iota + 2100
 	// EvtJoinAttempt indicates a join attempt in progress
 	EvtJoinAttempt
 	// EvtJoinSuccess indicates a successful join operation
@@ -46,7 +55,12 @@ const (
 /*
  * Errors
  */
+
 const (
+	//
+	// Operational errors
+	//
+
 	// EvtErrMisc indicates a miscellaneous internal error condition
 	EvtErrMisc = iota + 4000
 	// EvtErrStartup indicates an error starting the service
@@ -57,11 +71,15 @@ const (
 	EvtErrClaim
 	// EvtErrReturn indicates an error returning a request
 	EvtErrReturn
+)
+
+const (
 	//
 	// Request-releated errors
 	//
+
 	// EvtErrVerification indicates an error in request verification
-	EvtErrVerification = iota + 100
+	EvtErrVerification = iota + 4100
 	// EvtErrEncryption indicates an error encrypting a payload
 	EvtErrEncryption
 	// EvtErrNaming indicates a failure determining a hostname for a request. This
