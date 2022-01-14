@@ -42,8 +42,8 @@ type Basic struct {
 // that data passes basic integrity checks.
 func (d Basic) Check(ctx context.Context, req *models.Request) (server.StatusCode, error) {
 	switch {
-	case req.Hostname == "":
-		return server.StatusRequestHostBlank, errors.New("hostname is blank")
+	case req.Hostname == "" && req.GeneratorID == "":
+		return server.StatusRequestHostBlank, errors.New("hostname and generator_id are both blank")
 
 	case len(req.Hostname) > 15:
 		return server.StatusRequestHostLength, fmt.Errorf("hostname %s too long (got: %d, want: <15)", req.Hostname, len(req.Hostname))
