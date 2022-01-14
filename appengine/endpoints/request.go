@@ -238,10 +238,12 @@ func unmarshalRequest(r *http.Request) (models.Request, server.StatusCode, error
 	}
 
 	return models.Request{
-			Hostname:    clientRequest.Hostname,
-			ClientID:    clientRequest.ClientID,
-			ClientCert:  clientRequest.ClientCert,
-			GCEMetadata: clientRequest.GCEMetadata,
+			Hostname:      clientRequest.Hostname,
+			ClientID:      clientRequest.ClientID,
+			ClientCert:    clientRequest.ClientCert,
+			GCEMetadata:   clientRequest.GCEMetadata,
+			GeneratorID:   clientRequest.GeneratorID,
+			GeneratorData: clientRequest.GeneratorData,
 		},
 		server.StatusSuccess,
 		nil
