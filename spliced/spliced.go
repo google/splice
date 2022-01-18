@@ -251,9 +251,12 @@ func processRequest(req *models.Request) (crypto.Metadata, error) {
 
 // Run the splice daemon continuously, listening for new requests.
 func Run(ctx context.Context) ExitEvt {
+	if err := generators.ConfigureAll(); err != nil {
+		return ExitEvt{EvtErrStartup, fmt.Sprintf("Failed to configure generators. %v", err)}
+	}
 	client, err := pubsub.NewClient(ctx, conf.ProjectID)
 	if err != nil {
-		return ExitEvt{204, fmt.Sprintf("Failed to create client. %v", err)}
+		return ExitEvt{EvtErrSubscription, fmt.Sprintf("Failed to create client. %v", err)}
 	}
 	for {
 		elog.Info(EvtWaiting, "Awaiting join requests...")
