@@ -208,7 +208,13 @@ func join(req *models.Request) ([]byte, error) {
 // the client.
 func processRequest(req *models.Request) (crypto.Metadata, error) {
 	meta := crypto.Metadata{}
-	if err := certs.VerifyCert(req.ClientCert, req.Hostname+"."+conf.Domain, conf.CaURL, conf.CaURLPath, conf.CaOrg, conf.RootsPath, conf.VerifyCert); err != nil {
+
+	var fqdn string
+	if req.Hostname != "" {
+		fqdn = req.Hostname + "." + conf.Domain
+	}
+
+	if err := certs.VerifyCert(req.ClientCert, fqdn, conf.CaURL, conf.CaURLPath, conf.CaOrg, conf.RootsPath, conf.VerifyCert); err != nil {
 		elog.Warning(EvtErrVerification, fmt.Sprintf("Client verification failed: %v", err))
 		metrics.Get("failure_211").Increment()
 		meta.Data = []byte(err.Error())

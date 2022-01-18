@@ -118,16 +118,14 @@ func VerifyCert(c []byte, hostname, base, path, caOrg, roots string, verify bool
 		return fmt.Errorf("x509.ParseCertificate(c) for %s returned %v", hostname, err)
 	}
 
-	//Check that the cert presented is for the same host being joined.
-	if err := cert.VerifyHostname(hostname); err != nil {
-		return fmt.Errorf("cert.VerifyHostname(%s): %v", hostname, err)
-	}
 	opts := x509.VerifyOptions{
 		Intermediates: x509.NewCertPool(),
 		Roots:         x509.NewCertPool(),
-		DNSName:       hostname,
 		CurrentTime:   time.Now(),
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+	if hostname != "" {
+		opts.DNSName = hostname
 	}
 
 	// Build chain for validation.
