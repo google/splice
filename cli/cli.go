@@ -195,7 +195,7 @@ func resultPoll(c client, reqID string, clientID string) (*models.Response, erro
 			}
 		}
 		if (resp.Status == models.RequestStatusCompleted) && resp.ResponseData != nil {
-			fmt.Printf("Successfully retrieved result for host %s.\n", resp.Hostname)
+			fmt.Println("Successfully retrieved result.")
 			return resp, nil
 		}
 	}
