@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 /*
@@ -20,6 +21,7 @@ limitations under the License.
 package provisioning
 
 import (
+	"errors"
 	"fmt"
 	"syscall"
 	"unsafe"
@@ -32,7 +34,54 @@ const (
 	netsetupProvisionReuseAccount = 0x00000002
 	// Flags from NetRequestOfflineDomainJoin
 	netsetupProvisionOnlineCaller = 0x40000000
+
+	// Known error codes
+	errnoERROR_ACCESS_DENIED         = 5
+	errnoERROR_NOT_SUPPORTED         = 50
+	errnoERROR_INVALID_PARAMETER     = 87
+	errnoERROR_INVALID_DOMAIN_ROLE   = 1354
+	errnoERROR_NO_SUCH_DOMAIN        = 1355
+	errnoRPC_S_CALL_IN_PROGRESS      = 1791
+	errnoRPC_S_PROTSEQ_NOT_SUPPORTED = 1703
+	errnoNERR_DS8DCRequired          = 2720
+	errnoNERR_LDAPCapableDCRequired  = 2721
+	errnoNERR_UserExists             = 2224
+	errnoNERR_WkstaNotStarted        = 2138
 )
+
+var (
+	// ErrAccessDenied indicates an access-related error
+	ErrAccessDenied = errors.New("access is denied")
+	// ErrExists indicates that the specified account already exists
+	ErrExists = errors.New("the account already exists in the domain and reuse is not enabled")
+	// ErrInvalidParameter indicates that an invalid parameter was provided to the API
+	ErrInvalidParameter = errors.New("a parameter is incorrect")
+	// ErrNoSuchDomain indicates that an invalid domain was specified
+	ErrNoSuchDomain = errors.New("the specified domain does not exist")
+	// ErrNotSupported indicates that the request is not supported
+	ErrNotSupported = errors.New("the request is not supported")
+	// ErrWorkstationSvc indicates that the workstation service has not been started
+	ErrWorkstationSvc = errors.New("the Workstation service has not been started")
+)
+
+// errnoErr converts errno return values from api calls into usable errors
+func errnoErr(e syscall.Errno) error {
+	switch e {
+	case errnoERROR_ACCESS_DENIED:
+		return ErrAccessDenied
+	case errnoERROR_NOT_SUPPORTED:
+		return ErrNotSupported
+	case errnoERROR_INVALID_PARAMETER:
+		return ErrInvalidParameter
+	case errnoERROR_NO_SUCH_DOMAIN:
+		return ErrNoSuchDomain
+	case errnoNERR_UserExists:
+		return ErrExists
+	case errnoNERR_WkstaNotStarted:
+		return ErrWorkstationSvc
+	}
+	return e
+}
 
 var (
 	netapi32 = syscall.MustLoadDLL("Netapi32.dll")
@@ -41,21 +90,6 @@ var (
 	netProvisionComputerAccount = netapi32.MustFindProc("NetProvisionComputerAccount")
 	// Ref: https://msdn.microsoft.com/en-us/library/dd815229(v=vs.85).aspx
 	netRequestOfflineDomainJoin = netapi32.MustFindProc("NetRequestOfflineDomainJoin")
-
-	// Return codes for netRequestOfflineDomainjoin
-	netRequestCodes = map[syscall.Errno]string{
-		5:    "ERROR_ACCESS_DENIED",
-		50:   "ERROR_NOT_SUPPORTED",
-		87:   "ERROR_INVALID_PARAMETER",
-		1354: "ERROR_INVALID_DOMAIN_ROLE",
-		1355: "ERROR_NO_SUCH_DOMAIN",
-		1791: "RPC_S_CALL_IN_PROGRESS",
-		1703: "RPC_S_PROTSEQ_NOT_SUPPORTED",
-		2720: "NERR_DS8DCRequired",
-		2721: "NERR_LDAPCapableDCRequired",
-		2224: "NERR_UserExists",
-		2138: "NERR_WkstaNotStarted",
-	}
 )
 
 // OfflineJoin uses provisioning metadata to conduct an offline domain join.
@@ -115,13 +149,7 @@ func TextData(hostname, domain string, reuse, djoinCompat bool) ([]byte, error) 
 		uintptr(unsafe.Pointer(&buff)),       //_Out_opt_ LPWSTR  *pProvisionTextData
 	)
 	if r != 0 {
-		// The detailed error code is found only in syscall.Errno
-		if errno, ok := err.(syscall.Errno); ok {
-			err = fmt.Errorf("netProvisionComputerAccount failed with %d(%s)", errno, netRequestCodes[errno])
-			return result, err
-		}
-		err = fmt.Errorf("netProvisionComputerAccount failed with unknown error (%x,%v)", r, err)
-		return result, err
+		return result, errnoErr(syscall.Errno(r))
 	}
 
 	for i := range buff {
@@ -164,13 +192,7 @@ func BinData(hostname string, domain string, reuse bool) ([]byte, error) {
 		0,                                    //_Out_opt_ LPWSTR  *pProvisionTextData
 	)
 	if r != 0 {
-		// The detailed error code is found only in syscall.Errno
-		if errno, ok := err.(syscall.Errno); ok {
-			err = fmt.Errorf("netProvisionComputerAccount failed with %s(%d)", netRequestCodes[errno], errno)
-			return buff[:binSize], err
-		}
-		err = fmt.Errorf("netProvisionComputerAccount failed with unknown error (%x,%v)", r, err)
-		return buff[:binSize], err
+		return buff[:binSize], errnoErr(syscall.Errno(r))
 	}
 
 	return buff[:binSize], nil
