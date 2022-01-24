@@ -102,6 +102,13 @@ func ClientID(cert []byte) string {
 	return strings.TrimSuffix(base64.StdEncoding.EncodeToString(f[:]), "=")
 }
 
+var (
+	// Intermediates cert pool to be used for validating cert intermediates
+	Intermediates = x509.NewCertPool()
+	// Roots cert pool to be used for validating cert roots
+	Roots = x509.NewCertPool()
+)
+
 // VerifyCert takes a raw DER encoded cert, verifies that it is valid
 // and optionally attempts to verify its certificate chain. It returns
 // the DER encoded public key of the certificate.
@@ -119,8 +126,8 @@ func VerifyCert(c []byte, hostname, base, path, caOrg, roots string, verify bool
 	}
 
 	opts := x509.VerifyOptions{
-		Intermediates: x509.NewCertPool(),
-		Roots:         x509.NewCertPool(),
+		Intermediates: Intermediates,
+		Roots:         Roots,
 		CurrentTime:   time.Now(),
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}

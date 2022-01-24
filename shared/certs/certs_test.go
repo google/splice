@@ -101,4 +101,10 @@ func TestVerifyCert(t *testing.T) {
 	if err := VerifyCert(c.Cert.Raw, cn, base, "", "", "", false); err != nil {
 		t.Errorf("VerifyCert(%s) failed to verify a match = %v", cn, err)
 	}
+
+	// test valid cert
+	Roots.AddCert(c.Cert)
+	if err := VerifyCert(c.Cert.Raw, "", base, "", "", "", true); err != nil {
+		t.Errorf("VerifyCert(%s, \"\", \"\", \"\", false) failed a valid cert with %v", base, err)
+	}
 }
