@@ -27,17 +27,18 @@ const (
 )
 
 type appcfg struct {
-	Domain      string
-	Instance    string
-	ProjectID   string
-	Topic       string
-	EncryptBlob bool
-	VerifyCert  bool
-	CaURL       string
-	CaURLPath   string
-	CaOrg       string
-	RootsPath   string
-	PermitReuse bool
+	Domain         string
+	Instance       string
+	ProjectID      string
+	Topic          string
+	EncryptBlob    bool
+	VerifyCert     bool
+	CaURL          string
+	CaURLPath      string
+	CaOrg          string
+	RootsPath      string
+	PermitReuse    bool
+	UseTestBackend bool
 }
 
 func getConfig() (appcfg, error) {
@@ -102,8 +103,13 @@ func getConfig() (appcfg, error) {
 		conf.RootsPath = ""
 	}
 
-	pr, _, err := k.GetIntegerValue("permit_reuse")
-	if err != nil || pr != 1 {
+	v, _, err := k.GetIntegerValue("use_test_backend")
+	if err == nil && v == 1 {
+		conf.UseTestBackend = true
+	}
+
+	v, _, err = k.GetIntegerValue("permit_reuse")
+	if err != nil || v != 1 {
 		conf.PermitReuse = false
 	} else {
 		conf.PermitReuse = true

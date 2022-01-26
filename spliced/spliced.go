@@ -46,6 +46,7 @@ import (
 	"github.com/google/splice/shared/provisioning"
 	"github.com/google/splice/spliced/metric/tracker"
 	"github.com/google/splice/spliced/pubsub"
+	"github.com/google/splice/spliced/testing"
 )
 
 var (
@@ -56,6 +57,8 @@ var (
 	metricRoot = "/splice/metrics"
 	// MetricSvc sets platform source for metrics.
 	metricSvc = "splice"
+
+	provisioner = provisioning.BinData
 )
 
 // ExitEvt holds an EventLog event explaining why the goroutine had to exit.
@@ -191,7 +194,7 @@ func join(req *models.Request) ([]byte, error) {
 
 	elog.Info(EvtJoinAttempt, fmt.Sprintf("Attempting to join host %s to domain %s. Hostname reuse is set to %t.", wantName, conf.Domain, permitReuse(req)))
 	metrics.Get("join_attempt").Increment()
-	blob, err := provisioning.BinData(wantName, conf.Domain, permitReuse(req))
+	blob, err := provisioner(wantName, conf.Domain, permitReuse(req))
 	if err != nil {
 		elog.Warning(EvtJoinFailure, fmt.Sprintf("Failed to join host with: %v", err))
 		return nil, err
@@ -352,7 +355,8 @@ func Init() error {
 			"CA URL: %v\n"+
 			"CA URL Path: %v\n"+
 			"CA Expected Org: %v\n"+
-			"Permit reuse: %v",
+			"Permit reuse: %t\n"+
+			"Test backend: %t",
 		conf.Domain,
 		conf.Instance,
 		conf.ProjectID,
@@ -362,7 +366,14 @@ func Init() error {
 		conf.CaURL,
 		conf.CaURLPath,
 		conf.CaOrg,
-		conf.PermitReuse))
+		conf.PermitReuse,
+		conf.UseTestBackend))
+
+	if conf.UseTestBackend {
+		backend := &testing.InactiveDirectory{}
+		provisioner = backend.Join
+		elog.Warning(EvtConfiguration, "Test backend is enabled. Hosts will not join.")
+	}
 
 	return nil
 }
