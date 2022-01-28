@@ -43,6 +43,7 @@ const (
 	StatusRequestHostLength
 	StatusRequestClientIDBlank
 	StatusRequestResultReplay
+	StatusRequestGeneratorError
 )
 
 // Dependency validator messages
