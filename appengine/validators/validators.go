@@ -57,7 +57,11 @@ func (d Basic) Check(ctx context.Context, req *models.Request) (server.StatusCod
 // New returns a slice containing all basic validators for
 // interactive requests.
 func New() ([]Validator, error) {
-	return []Validator{Basic{}}, nil
+	return []Validator{
+		Basic{},
+		GenericGeneratorChecks{},
+		PrefixGeneratorCheck{},
+	}, nil
 }
 
 // NewUnattended returns a slice containing all validators required
