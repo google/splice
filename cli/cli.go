@@ -144,7 +144,7 @@ func request(c client, clientID string, cert certs.Certificate) (string, error) 
 
 	resp, err := post(c, model, endpoint)
 	if err != nil {
-		return "", fmt.Errorf("post(%s, %q) returned %v", model, endpoint, err)
+		return "", err
 	}
 	if resp.ErrorCode != server.StatusSuccess {
 		return "", fmt.Errorf("post to %s returned: %v %d %s", endpoint, resp.Status, resp.ErrorCode, resp.ResponseData)
