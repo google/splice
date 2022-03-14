@@ -370,7 +370,7 @@ func Init() error {
 		conf.UseTestBackend))
 
 	if conf.UseTestBackend {
-		backend := &testing.InactiveDirectory{}
+		backend := testing.NewInactiveDirectory()
 		provisioner = backend.Join
 		elog.Warning(EvtConfiguration, "Test backend is enabled. Hosts will not join.")
 	}

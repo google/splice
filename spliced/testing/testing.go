@@ -20,11 +20,21 @@ import "errors"
 var (
 	// ErrReuse is returned if a host cannot be joined again due to reuse being disabled
 	ErrReuse = errors.New("reuse disabled and host already exists")
+
+	// SuccessBlob is returned for a successful join, in lieu of a real metadata blob.
+	SuccessBlob = []byte("good job!")
 )
 
 // InactiveDirectory provides a fake AD structure for testing
 type InactiveDirectory struct {
 	Computers map[string]bool
+}
+
+// NewInactiveDirectory returns a new InactiveDirectory instance for testing.
+func NewInactiveDirectory() *InactiveDirectory {
+	return &InactiveDirectory{
+		Computers: make(map[string]bool),
+	}
 }
 
 // Join joins a host to the fake domain
@@ -33,5 +43,5 @@ func (id *InactiveDirectory) Join(name, domain string, reuse bool) ([]byte, erro
 		return nil, ErrReuse
 	}
 	id.Computers[name] = true
-	return []byte("good job!"), nil
+	return SuccessBlob, nil
 }
