@@ -308,6 +308,7 @@ func publishRequest(ctx context.Context, reqID string) error {
 	if err != nil {
 		return fmt.Errorf("pubsub.NewClient(%q) returned: %v", envProject, err)
 	}
+	defer ps.Close()
 
 	topic := ps.Topic(envTopic)
 	defer topic.Stop()
