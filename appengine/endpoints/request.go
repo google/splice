@@ -26,7 +26,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"google.golang.org/appengine"
@@ -310,13 +309,6 @@ func publishRequest(ctx context.Context, reqID string) error {
 		return fmt.Errorf("pubsub.NewClient(%q) returned: %v", envProject, err)
 	}
 
-	// Create topic if it doesn't exist.
-	_, err = ps.CreateTopic(ctx, envTopic)
-	if err != nil && !strings.Contains(err.Error(), "AlreadyExists") {
-		return fmt.Errorf("failed to create topic %q: %v", envTopic, err)
-	}
-
-	// CreateTopic doesn't return the topic if it already exists
 	topic := ps.Topic(envTopic)
 	defer topic.Stop()
 	res := topic.Publish(ctx, &pubsub.Message{Data: []byte(reqID)})
