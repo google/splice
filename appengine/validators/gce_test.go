@@ -21,8 +21,8 @@ import (
 	"golang.org/x/net/context"
 	"fmt"
 
-	"google.golang.org/appengine/aetest"
-	"google.golang.org/appengine"
+	"google.golang.org/appengine/v2/aetest"
+	"google.golang.org/appengine/v2"
 )
 
 // fakeContext is primarily used to provide an appengine Context for test purposes.

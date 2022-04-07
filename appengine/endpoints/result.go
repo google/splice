@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"time"
 
-	"google.golang.org/appengine"
-	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/v2"
+	"google.golang.org/appengine/v2/log"
 	"github.com/google/splice/appengine/server"
 	"github.com/google/splice/models"
 )

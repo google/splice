@@ -26,7 +26,7 @@ import (
 	"os"
 
 	"github.com/google/splice/appengine/validators"
-	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/v2/log"
 )
 
 // reqIDLength represents the length in bytes of a requestID

@@ -23,7 +23,7 @@ package main
 import (
 	"net/http"
 
-	"google.golang.org/appengine"
+	"google.golang.org/appengine/v2"
 	"github.com/google/splice/appengine/endpoints"
 )
 

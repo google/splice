@@ -15,4 +15,5 @@ require (
   golang.org/x/net v0.0.0-20210614182718-04defd469f4e
   golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
   google.golang.org/appengine v1.6.7
+  google.golang.org/appengine/v2 v2.0.1
 )

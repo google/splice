@@ -28,8 +28,8 @@ import (
 	"os"
 	"time"
 
-	"google.golang.org/appengine"
-	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/v2"
+	"google.golang.org/appengine/v2/log"
 	"cloud.google.com/go/pubsub"
 	"github.com/google/splice/appengine/server"
 	basic "github.com/google/splice/appengine/validators"
