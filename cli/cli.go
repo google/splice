@@ -34,6 +34,8 @@ import (
 
 	appclient "github.com/google/splice/cli/appclient"
 	"github.com/google/certtostore"
+	"golang.org/x/sys/windows/svc/debug"
+	"golang.org/x/sys/windows/svc/eventlog"
 	"github.com/google/splice/appengine/server"
 	"github.com/google/splice/models"
 	"github.com/google/splice/shared/certs"
@@ -43,6 +45,7 @@ import (
 
 const (
 	pollMaxRetries = 100
+	svcName        = "Splice-CLI"
 )
 
 var (
@@ -70,6 +73,8 @@ var (
 	generatorID = flag.String("generator_id", "", "The identity of a Splice name generator to be associated with the request.")
 
 	issuers, intermediates []string
+
+	elog debug.Log
 )
 
 type client interface {
@@ -230,25 +235,36 @@ func checkFlags() error {
 	return nil
 }
 
+func logAndExit(eid uint32, msg string) {
+	elog.Error(eid, msg)
+	log.Fatal(msg)
+}
+
 func main() {
 	var err error
 
-	if err = checkFlags(); err != nil {
+	elog, err = eventlog.Open(svcName)
+	if err != nil {
 		log.Fatal(err.Error())
+	}
+	defer elog.Close()
+
+	if err = checkFlags(); err != nil {
+		logAndExit(EvtErrStartup, err.Error())
 	}
 
 	var cert certs.Certificate
 	if len(issuers) >= 1 {
 		store, err := certs.NewStore(*certContainer, issuers, intermediates)
 		if err != nil {
-			log.Fatalf("error opening certificate store: %v", err)
+			logAndExit(EvtErrCertificate, fmt.Sprintf("error opening certificate store: %v", err))
 		}
 		defer store.Close()
 
 		var ctx certs.Context
 		cert, ctx, err = store.Find()
 		if err != nil || cert.Cert == nil || cert.Decrypter == nil {
-			log.Fatalf("error locating client certificate for issuers '%v': %v", issuers, err)
+			logAndExit(EvtErrCertificate, fmt.Sprintf("error locating client certificate for issuers '%v': %v", issuers, err))
 		}
 		defer ctx.Close()
 	}
@@ -259,7 +275,7 @@ func main() {
 			notAfter := time.Now().Add(time.Hour * 24 * 365 * 1)
 			err = cert.Generate(*myName, notBefore, notAfter)
 			if err != nil {
-				log.Fatalf("error generating self-signed certificate: %v", err)
+				logAndExit(EvtErrEncryption, fmt.Sprintf("error generating self-signed certificate: %v", err))
 			}
 		}
 		fmt.Println("Requesting encryption with public key.")
@@ -277,7 +293,7 @@ func main() {
 	} else {
 		computer, err := certtostore.CompProdInfo()
 		if err != nil {
-			log.Fatalf("certtostore.CompInfo returned %v", err)
+			logAndExit(EvtErrCertificate, fmt.Sprintf("certtostore.CompInfo returned %v", err))
 		}
 		clientID = computer.UUID
 	}
@@ -286,24 +302,24 @@ func main() {
 	if !*unattended {
 		c, err = appclient.Connect(*serverAddr, *username)
 		if err != nil {
-			log.Fatalf("SSO error: %v", err)
+			logAndExit(EvtErrConnection, fmt.Sprintf("SSO error: %v", err))
 		}
 	} else {
 		c, err = appclient.TLSClient(cert.Cert.Raw, cert.Decrypter)
 		if err != nil {
-			log.Fatalf("error during TLS client setup: %v", err)
+			logAndExit(EvtErrConnection, fmt.Sprintf("error during TLS client setup: %v", err))
 		}
 	}
 
 	reqID, err := request(c, clientID, cert)
 	if err != nil {
-		log.Fatalf("request: %v", err)
+		logAndExit(EvtErrRequest, fmt.Sprintf("request: %v", err))
 	}
 	fmt.Println("Successfully submitted join request.")
 
 	resp, err := resultPoll(c, reqID, clientID)
 	if err != nil {
-		log.Fatalf("resultPoll: %v\n", err)
+		logAndExit(EvtErrPoll, fmt.Sprintf("resultPoll: %v\n", err))
 	}
 	meta := metadata.Metadata{
 		Data:   resp.ResponseData,
@@ -314,15 +330,18 @@ func main() {
 	if *encrypt {
 		meta.Data, err = meta.Decrypt(cert.Decrypter)
 		if err != nil {
-			log.Fatalf("error decrypting metadata: %v", err)
+			logAndExit(EvtErrEncryption, fmt.Sprintf("error decrypting metadata: %v", err))
 		}
 	}
 
 	if *reallyJoin {
 		if err := provisioning.OfflineJoin(meta.Data); err != nil {
-			log.Fatalf("error applying join metadata to host: %v", err)
+			logAndExit(EvtErrJoin, fmt.Sprintf("error applying join metadata to host: %v", err))
 		}
-		fmt.Println("Successfully joined the domain! Reboot required to complete domain join.")
+		msg := "Successfully joined the domain! Reboot required to complete domain join."
+		elog.Info(EvtJoinSuccess, msg)
+		fmt.Println(msg)
+
 	} else {
 		fmt.Println("Metadata received but skipping application without -really_join")
 	}
