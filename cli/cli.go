@@ -218,6 +218,8 @@ func checkFlags() error {
 		return errors.New("-encrypt requires either -generate_cert or -cert_issuer")
 	case *encrypt && *generateCert && *certIssuers != "":
 		return errors.New("-encrypt is not supported with both -generate_cert and -cert_issuer")
+	case *generateCert && *myName == "":
+		return errors.New("-generate_cert requires -name")
 	}
 
 	if !strings.HasPrefix(*serverAddr, "http") {
