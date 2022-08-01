@@ -28,9 +28,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -154,7 +155,7 @@ func VerifyCert(c []byte, hostname, base, path, caOrg, roots string, verify bool
 
 	// If file roots are configured, fetch more roots from the file.
 	if roots != "" {
-		pem, err := ioutil.ReadFile(roots)
+		pem, err := os.ReadFile(roots)
 		if err != nil {
 			return fmt.Errorf("error reading %q: %v", roots, err)
 		}
@@ -228,7 +229,7 @@ func fetchIssuer(c *x509.Certificate, base string, path string) (*x509.Certifica
 		return nil, fmt.Errorf("response status != %v: %v", http.StatusOK, resp.Status)
 	}
 
-	raw, err := ioutil.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
