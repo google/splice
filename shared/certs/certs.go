@@ -49,7 +49,7 @@ type Certificate struct {
 func (c *Certificate) Generate(cn string, notBefore, notAfter time.Time) error {
 	// A proposed computer name must always satisfy MS naming conventions.
 	// https://support.microsoft.com/en-us/help/909264/naming-conventions-in-active-directory-for-computers-domains-sites-and
-	invalidName, err := regexp.MatchString(`^$|^\.|[\\/:*?"<>|]|.{15,}$`, cn)
+	invalidName, err := regexp.MatchString(`^$|^\.|[\\/:*?"<>|]|.{16,}$`, cn)
 	if invalidName || err != nil {
 		return fmt.Errorf("cn(%s) is invalid or empty, regexp.MatchString returned %v", cn, err)
 	}
