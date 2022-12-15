@@ -29,13 +29,14 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	appclient "github.com/google/splice/cli/appclient"
+	"github.com/google/deck/backends/eventlog"
+	"github.com/google/deck"
 	"github.com/google/certtostore"
-	"golang.org/x/sys/windows/svc/debug"
-	"golang.org/x/sys/windows/svc/eventlog"
 	"github.com/google/splice/appengine/server"
 	"github.com/google/splice/models"
 	"github.com/google/splice/shared/certs"
@@ -73,8 +74,6 @@ var (
 	generatorID = flag.String("generator_id", "", "The identity of a Splice name generator to be associated with the request.")
 
 	issuers, intermediates []string
-
-	elog debug.Log
 )
 
 type client interface {
@@ -238,18 +237,18 @@ func checkFlags() error {
 }
 
 func logAndExit(eid uint32, msg string) {
-	elog.Error(eid, msg)
+	deck.ErrorA(msg).With(eventlog.EventID(eid)).Go()
 	log.Fatal(msg)
 }
 
 func main() {
-	var err error
-
-	elog, err = eventlog.Open(svcName)
+	evt, err := eventlog.Init(svcName)
 	if err != nil {
-		log.Fatal(err.Error())
+		fmt.Println(err)
+		os.Exit(1)
 	}
-	defer elog.Close()
+	deck.Add(evt)
+	defer deck.Close()
 
 	if err = checkFlags(); err != nil {
 		logAndExit(EvtErrStartup, err.Error())
@@ -341,7 +340,7 @@ func main() {
 			logAndExit(EvtErrJoin, fmt.Sprintf("error applying join metadata to host: %v", err))
 		}
 		msg := "Successfully joined the domain! Reboot required to complete domain join."
-		elog.Info(EvtJoinSuccess, msg)
+		deck.InfoA(msg).With(eventlog.EventID(EvtJoinSuccess)).Go()
 		fmt.Println(msg)
 
 	} else {

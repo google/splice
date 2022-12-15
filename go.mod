@@ -7,12 +7,13 @@ require (
         cloud.google.com/go/pubsub v1.11.0
         github.com/google/cabbie v1.0.2
         github.com/google/certtostore v1.0.2
+        github.com/google/deck v0.0.0-20221206151953-9363e9de5515
         github.com/google/glazier v0.0.0-20210617205946-bf91b619f5d4
         github.com/google/go-cmp v0.5.5
         github.com/pkg/errors v0.9.1
         go.uber.org/atomic v1.9.0
         golang.org/x/net v0.0.0-20210614182718-04defd469f4e
-        golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
+        golang.org/x/sys v0.2.0
         google.golang.org/appengine/v2 v2.0.1
 )
 
