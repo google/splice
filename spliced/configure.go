@@ -31,7 +31,7 @@ var (
 	fTopic    = cFlags.String("topic", "", "The Pub/Sub topic name this daemon should subscribe to.")
 
 	fEncryptBlob         = cFlags.Bool("encrypt_blob", true, "Require metadata blob encryption.")
-	fVerifyCerts         = cFlags.Bool("verify_certs", true, "Require that the certificate passed with requests pass verification checks.")
+	fVerifyCerts         = cFlags.Bool("verify_certs", false, "Require that the certificate passed with requests pass verification checks.")
 	fVerifyCertsRootURL  = cFlags.String("ca_root_url", "", "The base URL for the root certificate(s) you wish to lookup during verification. Required if verify_certs=true.")
 	fVerifyCertsRootPath = cFlags.String("ca_cert_path", "", "The path under ca_root_url at which the root certificate can be found for certificate validation. Optional if verify_certs=true.")
 	fVerifyCertsCAOrg    = cFlags.String("ca_cert_org", "", "The expected issuing organization for the root certificate. Optional if verify_certs=true.")
