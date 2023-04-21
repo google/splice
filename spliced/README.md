@@ -10,17 +10,16 @@ SpliceD uses
 to interact with the Cloud Datastore. The daemon requires a provisioned service
 account with datastore privileges.
 
-### Account Setup
+### Role Account Setup {#role-account-setup}
 
-1.  In the Cloud Project, go to IAM & Admin
-1.  Go to Service Accounts
-1.  Create a new service account
-    *   Select the option to *Furnish a new private key*
-1.  Assign the role Datastore > Cloud Datastore Owner to the new account.
+1. In the Cloud Project, go to IAM & Admin > Service Accounts.
+1. Click, "Create Service Account".
+1. Select the option to *Furnish a new private key*.
+1. Assign the role Datastore > Cloud Datastore Owner to the new account.
 
-#### Account Credentials
+#### Role Account Credentials {#role-account-credentials}
 
-The Cloud control panel will provide a JSON encoded credential file for the new
+The Cloud control panel will provide a JSON-encoded credential file for the new
 account, which can be used to authenticate an application from Windows.
 
 WARNING: The credential file is sensitive, and allows anyone to impersonate the
@@ -30,9 +29,9 @@ existing key and issue a new one in the service account UI.
 
 To install the credentials on the SpliceD server:
 
-1.  Copy the service account .json file to the server filesystem. (Ex:
-    C:\ProgramData\SpliceD)
-1.  Configure a new system environment variable with the path to the file.
+1.  Copy the service account .json file to the server filesystem. (e.g.,
+    `C:\ProgramData\SpliceD`).
+1.  Configure a new system environment variable with the path to the file:
     *   Name: `GOOGLE_APPLICATION_CREDENTIALS`
     *   Value: \[Path to .json\]
 1.  Consider restricting the filesystem ACLs on the credential file to limit
@@ -40,8 +39,10 @@ To install the credentials on the SpliceD server:
 
 ## Configuration {#config}
 
-Configuration is handled via the registry. Before enabling the spliced service,
-run spliced.exe from the command line to configure the application.
+### Command
+
+Configuration is handled via the registry. Before enabling the SpliceD service,
+run `spliced.exe` from the command line to configure the application:
 
 ```
 spliced configure -domain "domain.example.com" -instance "spliced123" -project "example-cloud-project" -topic "subscription1"
@@ -50,7 +51,7 @@ spliced configure -domain "domain.example.com" -instance "spliced123" -project "
 You can modify settings by re-running the configure command with one or more
 parameters and restarting the service.
 
-### Detail
+### Registry Keys
 
 *   HKLM\SOFTWARE\Splice\spliced
     *   Name: domain
@@ -109,8 +110,7 @@ The NetProvisionComputerAccount function supports the
 `NETSETUP_PROVISION_REUSE_ACCOUNT` option. If enabled, the join will attempt to
 reuse an existing account of the same name, should one exist.
 
-Reference:
-https://msdn.microsoft.com/en-us/library/windows/desktop/dd815228(v=vs.85).aspx
+See also, Microsoft documentation [NetProvisionComputerAccount function](https://msdn.microsoft.com/en-us/library/windows/desktop/dd815228(v=vs.85).aspx).
 
 ## Logging
 
@@ -133,7 +133,7 @@ handling reference.
 *   08b0: Account already exists. See `permit_reuse`.
 *   216D: Joiner's machine account quota has been exceeded.
 
-https://msdn.microsoft.com/en-us/library/windows/desktop/ms681381(v=vs.85).aspx
+See also, Microsoft documentation [Debug system error codes](https://msdn.microsoft.com/en-us/library/windows/desktop/ms681381(v=vs.85).aspx).
 
 ## Machine Account Quota
 
@@ -154,11 +154,11 @@ accounts.
 1.  On the OU receiving new computer accounts, go to Properties
 1.  Go to Security tab
 1.  Add either:
-    *   The domain user the SpliceD service will run as or
-    *   The machine account(s) where SpliceD is installed or
-    *   A security group containing the domain users or machine accounts
-1.  Using the Advanced option, grant the accounts the Create Computer Object
-    privilege.
-    *   You may revoke any additional privileges.
+    * The domain user the SpliceD service will run as or
+    * The machine account(s) where SpliceD is installed or
+    * A security group containing the domain users or machine accounts
+1.  Using the Advanced option:
+    * Grant the accounts the Create Computer Object privilege
+    * Optionally revoke any additional privileges
 
-https://msdn.microsoft.com/en-us/library/ms678639(v=vs.85).aspx
+See also, Microsoft documentation [MS-DS-Machine-Account-Quota attribute](https://msdn.microsoft.com/en-us/library/ms678639(v=vs.85).aspx).
