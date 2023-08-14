@@ -36,6 +36,11 @@ import (
 	"github.com/google/splice/models"
 )
 
+var (
+	// RequestExpiration sets time at which requests will expire from the Datastore.
+	RequestExpiration = 365 * 24 * time.Hour
+)
+
 // AttendedRequestHandler implements http.Handler for user interactive joins.
 type AttendedRequestHandler struct{}
 
@@ -134,6 +139,7 @@ func ProcessRequest(ctx context.Context, w http.ResponseWriter, r *http.Request,
 	}
 
 	request.AcceptTime = time.Now()
+	request.ExpireAt = time.Now().Add(RequestExpiration)
 	request.Status = models.RequestStatusAccepted
 
 	// Initialize an empty datastore client at the appropriate scope.
@@ -268,7 +274,7 @@ func cleanupOrphans(ctx context.Context, dc *Client) error {
 	defer dc.RollbackTx()
 
 	// Cleanup requests by type because the datastore GetAll
-	// func contcatenates filters using AND.
+	// func concatenates filters using AND.
 	for _, kind := range s {
 		keys, requests, err := dc.FindOrphans(ctx, olderThan, kind)
 		if err != nil {

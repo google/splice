@@ -62,15 +62,18 @@ type Request struct {
 	CompletionTime time.Time
 	ResponseData   []byte `datastore:",noindex"`
 
+	// ExpireAt allows the Datastore to apply a TTL for old requests.
+	ExpireAt time.Time
+
 	// Unattended validation
-	GCEMetadata gce.Metadata
+	GCEMetadata gce.Metadata `datastore:",noindex"`
 
 	//
 	// Encryption
 	//
 
-	ResponseKey []byte
-	CipherNonce []byte
+	ResponseKey []byte `datastore:",noindex"`
+	CipherNonce []byte `datastore:",noindex"`
 
 	//
 	// Reuse
@@ -87,7 +90,7 @@ type Request struct {
 
 	// (Optional) GeneratorData allows for arbitrary add-on data to be encoded by the CLI
 	// for use by SpliceD. Its use will be generator-specific.
-	GeneratorData []byte
+	GeneratorData []byte `datastore:",noindex"`
 }
 
 // StatusQuery models a request for the status of a join.
