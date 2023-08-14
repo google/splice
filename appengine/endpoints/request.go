@@ -30,6 +30,7 @@ import (
 
 	"google.golang.org/appengine/v2"
 	"google.golang.org/appengine/v2/log"
+	"cloud.google.com/go/datastore"
 	"cloud.google.com/go/pubsub"
 	"github.com/google/splice/appengine/server"
 	basic "github.com/google/splice/appengine/validators"
@@ -286,7 +287,7 @@ func cleanupOrphans(ctx context.Context, dc *Client) error {
 				orphan.Status = models.RequestStatusFailed
 				dc.Req = nil
 				dc.Req = &orphan
-				dc.Keys[0] = keys[i]
+				dc.Keys = []*datastore.Key{keys[i]}
 				if _, err = dc.Save(ctx); err != nil {
 					return err
 				}
