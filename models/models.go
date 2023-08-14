@@ -60,7 +60,7 @@ type Request struct {
 	ClaimTime      time.Time
 	Status         string
 	CompletionTime time.Time
-	ResponseData   []byte
+	ResponseData   []byte `datastore:",noindex"`
 
 	// Unattended validation
 	GCEMetadata gce.Metadata
