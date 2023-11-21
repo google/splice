@@ -35,7 +35,7 @@ type Store struct {
 func NewStore(container string, issuers, intermediates []string) (*Store, error) {
 	var s Store
 	// Open the local cert store. Provider generally shouldn't matter, so use Software which is ubiquitous. See comments in getHostKey.
-	store, err := certtostore.OpenWinCertStore(certtostore.ProviderMSSoftware, container, issuers, intermediates, false)
+	store, err := certtostore.OpenWinCertStore(certtostore.ProviderMSSoftware, container, issuers, intermediates)
 	if err != nil {
 		return nil, fmt.Errorf("OpenWinCertStore: %v", err)
 	}
