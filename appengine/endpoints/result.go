@@ -17,15 +17,15 @@ limitations under the License.
 package endpoints
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
 
-	"google.golang.org/appengine"
-	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/v2"
+	"google.golang.org/appengine/v2/log"
 	"github.com/google/splice/appengine/server"
 	"github.com/google/splice/models"
 )
@@ -54,7 +54,7 @@ func (rh ResultHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(int(server.StatusSuccess))
+	w.WriteHeader(http.StatusOK)
 	w.Write(jsonResponse)
 	log.Infof(ctx, "successfully processed response with requestID '%q' for host '%q'", resp.RequestID, resp.Hostname)
 }

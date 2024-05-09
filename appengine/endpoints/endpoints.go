@@ -19,14 +19,14 @@ limitations under the License.
 package endpoints
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/google/splice/appengine/validators"
-	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/v2/log"
 )
 
 // reqIDLength represents the length in bytes of a requestID

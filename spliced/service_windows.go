@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*Binary service_windows implements the SpliceD Windows service.
+/*
+Binary service_windows implements the SpliceD Windows service.
 
 When installed as a Window service, this daemon will wait for new domain
 join requests, attempt the join, and return the output to the cloud datastore.
@@ -24,22 +25,28 @@ For debugging, run from an admin command shell with the 'debug' argument.
 package main
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 
-
+	"github.com/google/deck/backends/eventlog"
+	"github.com/google/deck/backends/logger"
+	"github.com/google/deck"
 	"golang.org/x/sys/windows/svc/debug"
-	"golang.org/x/sys/windows/svc/eventlog"
+	sysevt "golang.org/x/sys/windows/svc/eventlog"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows"
+	"github.com/google/splice/generators"
+
+	// register generators
+	_ "github.com/google/splice/generators/prefix"
 )
 
 const svcName = "SpliceD"
 
-var elog debug.Log
+var eventID = eventlog.EventID
 
 // Type winSvc implements svc.Handler
 type winSvc struct{}
@@ -52,13 +59,13 @@ func (m *winSvc) Execute(args []string, r <-chan svc.ChangeRequest, changes chan
 
 	changes <- svc.Status{State: svc.StartPending}
 	if err := Init(); err != nil {
-		elog.Error(203, fmt.Sprintf("Failure starting service. %v", err))
+		deck.ErrorfA("Failure starting service. %v", err).With(eventID(EvtErrStartup)).Go()
 		return
 	}
 	go func() {
 		errch <- Run(ctx)
 	}()
-	elog.Info(103, "Service started.")
+	deck.InfoA("Service started.").With(eventID(EvtStartup)).Go()
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
@@ -66,7 +73,7 @@ loop:
 		select {
 		// Watch for the spliced goroutine to fail for some reason.
 		case err := <-errch:
-			elog.Error(err.Code, err.Message)
+			deck.ErrorA(err.Message).With(eventID(err.Code)).Go()
 			break loop
 		// Watch for service signals.
 		case c := <-r:
@@ -80,7 +87,7 @@ loop:
 			case svc.Continue:
 				changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 			default:
-				elog.Error(202, fmt.Sprintf("Unexpected control request #%d", c))
+				deck.ErrorfA("Unexpected control request #%d", c).With(eventID(EvtErrMisc)).Go()
 			}
 		}
 	}
@@ -90,27 +97,22 @@ loop:
 
 func runService(name string, isDebug bool) {
 	var err error
-	if isDebug {
-		elog = debug.New(name)
-	} else {
-		elog, err = eventlog.Open(name)
-		if err != nil {
-			return
-		}
-	}
-	defer elog.Close()
 
-	elog.Info(100, fmt.Sprintf("Starting %s service.", name))
+	if isDebug {
+		deck.Add(logger.Init(os.Stdout, 0))
+	}
+
+	deck.InfofA("Starting %s service.", name).With(eventID(EvtStartup)).Go()
 	run := svc.Run
 	if isDebug {
 		run = debug.Run
 	}
 	err = run(name, &winSvc{})
 	if err != nil {
-		elog.Error(200, fmt.Sprintf("%s service failed. %v", name, err))
+		deck.ErrorfA("%s service failed. %v", name, err).With(eventID(EvtErrMisc)).Go()
 		return
 	}
-	elog.Info(101, fmt.Sprintf("%s service stopped.", name))
+	deck.InfofA("%s service stopped.", name).With(eventID(EvtShutdown)).Go()
 }
 
 func usage(errmsg string) {
@@ -124,12 +126,19 @@ func usage(errmsg string) {
 }
 
 func main() {
+	evt, err := eventlog.Init(svcName)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	deck.Add(evt)
+	defer deck.Close()
 
-	isIntSess, err := svc.IsAnInteractiveSession()
+	isSvc, err := svc.IsWindowsService()
 	if err != nil {
 		log.Fatalf("failed to determine if we are running in an interactive session: %v", err)
 	}
-	if !isIntSess {
+	if isSvc {
 		runService(svcName, false)
 		return
 	}
@@ -147,13 +156,18 @@ func main() {
 			log.Fatalf("failed to configure application due to %v", err)
 		}
 		// Create the event source prior to opening to avoid description cannot be found errors.
-		if err = eventlog.InstallAsEventCreate(svcName, eventlog.Info|eventlog.Warning|eventlog.Error); err != nil {
+		if err = sysevt.InstallAsEventCreate(svcName, sysevt.Info|sysevt.Warning|sysevt.Error); err != nil {
 			if !strings.Contains(err.Error(), "registry key already exists") && err != windows.ERROR_ACCESS_DENIED {
 				log.Fatalf("Installation of the event source returned %v", err)
 				return
 			}
 		}
 		fmt.Println("configuration successful")
+	case "generators":
+		fmt.Println("Available generators:")
+		for _, v := range generators.List() {
+			fmt.Printf("\t%s\n", v)
+		}
 	default:
 		usage(fmt.Sprintf("invalid command %s", cmd))
 	}

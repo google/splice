@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 /*
 Copyright 2018 Google Inc.
 
@@ -19,9 +22,6 @@ package main
 
 import (
 	"bytes"
-	"crypto"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -29,11 +29,13 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
-
 	appclient "github.com/google/splice/cli/appclient"
+	"github.com/google/deck/backends/eventlog"
+	"github.com/google/deck"
 	"github.com/google/certtostore"
 	"github.com/google/splice/appengine/server"
 	"github.com/google/splice/models"
@@ -44,6 +46,7 @@ import (
 
 const (
 	pollMaxRetries = 100
+	svcName        = "Splice-CLI"
 )
 
 var (
@@ -67,9 +70,10 @@ var (
 	encrypt           = flag.Bool("encrypt", true, "Encrypt all metadata in transit.")
 	generateCert      = flag.Bool("generate_cert", false, "Generate a self-signed certificate for encryption.")
 
+	// Generator Support
+	generatorID = flag.String("generator_id", "", "The identity of a Splice name generator to be associated with the request.")
+
 	issuers, intermediates []string
-	decrypter              crypto.Decrypter
-	cert                   []byte
 )
 
 type client interface {
@@ -117,7 +121,7 @@ func post(c client, msg interface{}, addr string) (*models.Response, error) {
 
 // request posts to the splice request endpoint and returns the
 // requestID if successful or an error.
-func request(c client, clientID string) (string, error) {
+func request(c client, clientID string, cert certs.Certificate) (string, error) {
 	model := &models.ClientRequest{
 		Hostname: *myName,
 		ClientID: clientID,
@@ -133,13 +137,18 @@ func request(c client, clientID string) (string, error) {
 			return "", fmt.Errorf("error reading GCE metadata: %v", err)
 		}
 	}
+
 	if *encrypt {
-		model.ClientCert = cert
+		model.ClientCert = cert.Cert.Raw
+	}
+
+	if *generatorID != "" {
+		model.GeneratorID = *generatorID
 	}
 
 	resp, err := post(c, model, endpoint)
 	if err != nil {
-		return "", fmt.Errorf("post(%s, %q) returned %v", model, endpoint, err)
+		return "", err
 	}
 	if resp.ErrorCode != server.StatusSuccess {
 		return "", fmt.Errorf("post to %s returned: %v %d %s", endpoint, resp.Status, resp.ErrorCode, resp.ResponseData)
@@ -183,12 +192,14 @@ func resultPoll(c client, reqID string, clientID string) (*models.Response, erro
 		if resp.Status == models.RequestStatusFailed {
 			return resp, fmt.Errorf("domain join failed, request:%s, id:%s, status:%d %v, data: %s", reqID, clientID, resp.ErrorCode, resp.Status, resp.ResponseData)
 		}
-		if (resp.Status == models.RequestStatusCompleted) && (resp.Hostname != *myName) {
-			fmt.Printf("Result returned is for a different host, got %s, want %s.\n", resp.Hostname, *myName)
-			return resp, nil
+		if *generatorID == "" {
+			if (resp.Status == models.RequestStatusCompleted) && (resp.Hostname != *myName) {
+				fmt.Printf("Result returned is for a different host, got %s, want %s.\n", resp.Hostname, *myName)
+				return resp, nil
+			}
 		}
 		if (resp.Status == models.RequestStatusCompleted) && resp.ResponseData != nil {
-			fmt.Printf("Successfully retrieved result for host %s.\n", resp.Hostname)
+			fmt.Println("Successfully retrieved result.")
 			return resp, nil
 		}
 	}
@@ -196,57 +207,18 @@ func resultPoll(c client, reqID string, clientID string) (*models.Response, erro
 	return nil, fmt.Errorf("retry limit (%d) exceeded", pollMaxRetries)
 }
 
-func getHostCert() error {
-	var err error
-
-	store, err := certtostore.OpenWinCertStore(certtostore.ProviderMSSoftware, *certContainer, issuers, intermediates, false)
-	if err != nil {
-		return fmt.Errorf("OpenWinCertStore: %v", err)
-	}
-
-	if err = getHostKey(store); err != nil {
-		log.Printf("Trying '%s' instead...", certtostore.ProviderMSPlatform)
-	}
-	if err == nil {
-		return nil
-	}
-
-	store, err = certtostore.OpenWinCertStore(certtostore.ProviderMSPlatform, *certContainer, issuers, intermediates, false)
-	if err != nil {
-		return fmt.Errorf("OpenWinCertStore: %v", err)
-	}
-
-	return getHostKey(store)
-}
-
-func getHostKey(store *certtostore.WinCertStore) error {
-	var err error
-
-	decrypter, err = store.Key()
-	if err != nil {
-		log.Printf("A private key was not found in '%s'.", store.ProvName)
-		return err
-	}
-
-	c, err := store.Cert()
-	if err != nil {
-		return fmt.Errorf("cert: %v", err)
-	}
-	cert = c.Raw
-
-	return nil
-}
-
 func checkFlags() error {
 	switch {
-	case *myName == "":
-		return errors.New("the name flag is required")
+	case *myName == "" && *generatorID == "":
+		return errors.New("must provide either -name or -generator_id")
 	case *serverAddr == "":
-		return errors.New("the server flag is required")
+		return errors.New("the -server flag is required")
 	case *encrypt && !*generateCert && *certIssuers == "":
 		return errors.New("-encrypt requires either -generate_cert or -cert_issuer")
 	case *encrypt && *generateCert && *certIssuers != "":
 		return errors.New("-encrypt is not supported with both -generate_cert and -cert_issuer")
+	case *generateCert && *myName == "":
+		return errors.New("-generate_cert requires -name")
 	}
 
 	if !strings.HasPrefix(*serverAddr, "http") {
@@ -264,27 +236,47 @@ func checkFlags() error {
 	return nil
 }
 
+func logAndExit(eid uint32, msg string) {
+	deck.ErrorA(msg).With(eventlog.EventID(eid)).Go()
+	log.Fatal(msg)
+}
+
 func main() {
-	var err error
+	evt, err := eventlog.Init(svcName)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	deck.Add(evt)
+	defer deck.Close()
 
 	if err = checkFlags(); err != nil {
-		log.Fatal(err.Error())
+		logAndExit(EvtErrStartup, err.Error())
 	}
 
+	var cert certs.Certificate
 	if len(issuers) >= 1 {
-		err = getHostCert()
-		if err != nil || cert == nil || decrypter == nil {
-			log.Fatalf("error locating client certificate for issuers '%v': %v", issuers, err)
+		store, err := certs.NewStore(*certContainer, issuers, intermediates)
+		if err != nil {
+			logAndExit(EvtErrCertificate, fmt.Sprintf("error opening certificate store: %v", err))
 		}
+		defer store.Close()
+
+		var ctx certs.Context
+		cert, ctx, err = store.Find()
+		if err != nil || cert.Cert == nil || cert.Decrypter == nil {
+			logAndExit(EvtErrCertificate, fmt.Sprintf("error locating client certificate for issuers '%v': %v", issuers, err))
+		}
+		defer ctx.Close()
 	}
 
 	if *encrypt {
 		if *generateCert {
 			notBefore := time.Now().Add(-1 * time.Hour)
 			notAfter := time.Now().Add(time.Hour * 24 * 365 * 1)
-			cert, decrypter, err = certs.GenerateSelfSignedCert(*myName, notBefore, notAfter)
+			err = cert.Generate(*myName, notBefore, notAfter)
 			if err != nil {
-				log.Fatalf("error generating self-signed certificate: %v", err)
+				logAndExit(EvtErrEncryption, fmt.Sprintf("error generating self-signed certificate: %v", err))
 			}
 		}
 		fmt.Println("Requesting encryption with public key.")
@@ -298,12 +290,11 @@ func main() {
 	if len(issuers) >= 1 {
 		// The SHA256 hash of the cert is used server side for client verification when
 		// certificate verification is enabled.
-		fingerprintRaw := sha256.Sum256(cert)
-		clientID = strings.TrimSuffix(base64.StdEncoding.EncodeToString(fingerprintRaw[:]), "=")
+		clientID = certs.ClientID(cert.Cert.Raw)
 	} else {
 		computer, err := certtostore.CompProdInfo()
 		if err != nil {
-			log.Fatalf("certtostore.CompInfo returned %v", err)
+			logAndExit(EvtErrCertificate, fmt.Sprintf("certtostore.CompInfo returned %v", err))
 		}
 		clientID = computer.UUID
 	}
@@ -312,24 +303,24 @@ func main() {
 	if !*unattended {
 		c, err = appclient.Connect(*serverAddr, *username)
 		if err != nil {
-			log.Fatalf("SSO error: %v", err)
+			logAndExit(EvtErrConnection, fmt.Sprintf("SSO error: %v", err))
 		}
 	} else {
-		c, err = appclient.TLSClient(cert, decrypter)
+		c, err = appclient.TLSClient(cert.Cert.Raw, cert.Decrypter)
 		if err != nil {
-			log.Fatalf("error during TLS client setup: %v", err)
+			logAndExit(EvtErrConnection, fmt.Sprintf("error during TLS client setup: %v", err))
 		}
 	}
 
-	reqID, err := request(c, clientID)
+	reqID, err := request(c, clientID, cert)
 	if err != nil {
-		log.Fatalf("request: %v", err)
+		logAndExit(EvtErrRequest, fmt.Sprintf("request: %v", err))
 	}
 	fmt.Println("Successfully submitted join request.")
 
 	resp, err := resultPoll(c, reqID, clientID)
 	if err != nil {
-		log.Fatalf("resultPoll: %v\n", err)
+		logAndExit(EvtErrPoll, fmt.Sprintf("resultPoll: %v\n", err))
 	}
 	meta := metadata.Metadata{
 		Data:   resp.ResponseData,
@@ -338,17 +329,20 @@ func main() {
 	}
 
 	if *encrypt {
-		meta.Data, err = meta.Decrypt(decrypter)
+		meta.Data, err = meta.Decrypt(cert.Decrypter)
 		if err != nil {
-			log.Fatalf("error decrypting metadata: %v", err)
+			logAndExit(EvtErrEncryption, fmt.Sprintf("error decrypting metadata: %v", err))
 		}
 	}
 
 	if *reallyJoin {
 		if err := provisioning.OfflineJoin(meta.Data); err != nil {
-			log.Fatalf("error applying join metadata to host: %v", err)
+			logAndExit(EvtErrJoin, fmt.Sprintf("error applying join metadata to host: %v", err))
 		}
-		fmt.Println("Successfully joined the domain! Reboot required to complete domain join.")
+		msg := "Successfully joined the domain! Reboot required to complete domain join."
+		deck.InfoA(msg).With(eventlog.EventID(EvtJoinSuccess)).Go()
+		fmt.Println(msg)
+
 	} else {
 		fmt.Println("Metadata received but skipping application without -really_join")
 	}

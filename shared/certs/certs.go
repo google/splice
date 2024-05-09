@@ -19,38 +19,52 @@ limitations under the License.
 package certs
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
+	"os"
 	"regexp"
+	"strings"
 	"time"
 )
 
-// GenerateSelfSignedCert generates a self-signed certificate using
-// a template and returns the certificate in DER format and its key.
-func GenerateSelfSignedCert(cn string, notBefore, notAfter time.Time) ([]byte, *rsa.PrivateKey, error) {
+// Certificate holds a host certificate including the x509 certificate and its corresponding key.
+type Certificate struct {
+	Cert      *x509.Certificate
+	Decrypter crypto.Decrypter
+
+	Key interface{}
+}
+
+// Generate generates a self-signed certificate using a template and returns the certificate in DER format and its key.
+func (c *Certificate) Generate(cn string, notBefore, notAfter time.Time) error {
 	// A proposed computer name must always satisfy MS naming conventions.
 	// https://support.microsoft.com/en-us/help/909264/naming-conventions-in-active-directory-for-computers-domains-sites-and
-	invalidName, err := regexp.MatchString(`^$|^\.|[\\/:*?"<>|]|.{15,}$`, cn)
+	invalidName, err := regexp.MatchString(`^$|^\.|[\\/:*?"<>|]|.{16,}$`, cn)
 	if invalidName || err != nil {
-		return nil, nil, fmt.Errorf("cn(%s) is invalid or empty, regexp.MatchString returned %v", cn, err)
+		return fmt.Errorf("cn(%s) is invalid or empty, regexp.MatchString returned %v", cn, err)
 	}
 
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, nil, fmt.Errorf("rsa.GenerateKey returned %v", err)
+		return fmt.Errorf("rsa.GenerateKey returned %v", err)
 	}
+	c.Decrypter = key
+	c.Key = key
 
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to generate certificate serial number: %v", err)
+		return fmt.Errorf("unable to generate certificate serial number: %v", err)
 	}
 
 	template := x509.Certificate{
@@ -66,13 +80,35 @@ func GenerateSelfSignedCert(cn string, notBefore, notAfter time.Time) ([]byte, *
 		NotAfter:  notAfter,
 	}
 
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	crt, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to generate a self-signed certificate, x509.CreateCertificate returned %v", err)
+		return fmt.Errorf("unable to generate a self-signed certificate, x509.CreateCertificate returned %v", err)
+	}
+	c.Cert, err = x509.ParseCertificate(crt)
+	if err != nil {
+		return fmt.Errorf("unable to parse self-signed certificate, x509.ParseCertificate returned %v", err)
 	}
 
-	return derBytes, priv, nil
+	return nil
 }
+
+// Fingerprint generates a sha256 certificate fingerprint
+func Fingerprint(cert []byte) [32]byte {
+	return sha256.Sum256(cert)
+}
+
+// ClientID returns the client identifier string.
+func ClientID(cert []byte) string {
+	f := Fingerprint(cert)
+	return strings.TrimSuffix(base64.StdEncoding.EncodeToString(f[:]), "=")
+}
+
+var (
+	// Intermediates cert pool to be used for validating cert intermediates
+	Intermediates = x509.NewCertPool()
+	// Roots cert pool to be used for validating cert roots
+	Roots = x509.NewCertPool()
+)
 
 // VerifyCert takes a raw DER encoded cert, verifies that it is valid
 // and optionally attempts to verify its certificate chain. It returns
@@ -90,16 +126,14 @@ func VerifyCert(c []byte, hostname, base, path, caOrg, roots string, verify bool
 		return fmt.Errorf("x509.ParseCertificate(c) for %s returned %v", hostname, err)
 	}
 
-	//Check that the cert presented is for the same host being joined.
-	if err := cert.VerifyHostname(hostname); err != nil {
-		return fmt.Errorf("cert.VerifyHostname(%s): %v", hostname, err)
-	}
 	opts := x509.VerifyOptions{
-		Intermediates: x509.NewCertPool(),
-		Roots:         x509.NewCertPool(),
-		DNSName:       hostname,
+		Intermediates: Intermediates,
+		Roots:         Roots,
 		CurrentTime:   time.Now(),
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+	if hostname != "" {
+		opts.DNSName = hostname
 	}
 
 	// Build chain for validation.
@@ -121,7 +155,7 @@ func VerifyCert(c []byte, hostname, base, path, caOrg, roots string, verify bool
 
 	// If file roots are configured, fetch more roots from the file.
 	if roots != "" {
-		pem, err := ioutil.ReadFile(roots)
+		pem, err := os.ReadFile(roots)
 		if err != nil {
 			return fmt.Errorf("error reading %q: %v", roots, err)
 		}
@@ -195,7 +229,7 @@ func fetchIssuer(c *x509.Certificate, base string, path string) (*x509.Certifica
 		return nil, fmt.Errorf("response status != %v: %v", http.StatusOK, resp.Status)
 	}
 
-	raw, err := ioutil.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

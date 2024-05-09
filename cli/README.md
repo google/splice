@@ -21,8 +21,10 @@ cli.exe is configured via runtime flags.
     to use for encryption, in lieu of a host certificate. Requires '-encrypt'.
 *   **-really_join**: (optional) Specifies of the domain join operation should
     be finalized, defaults to false.
-*   **-unattended**: (optional) Makes requests using unattended mode. Requires the gce flag.
-*   **-gce**: (optional) Includes GCE metadata with the request. Only used by the unattended flag.
+*   **-unattended**: (optional) Makes requests using unattended mode. Requires
+    the gce flag.
+*   **-gce**: (optional) Includes GCE metadata with the request. Only used by
+    the unattended flag.
 *   **-verbose**: (optional) Include verbose output during the offline domain
     join.
 
@@ -67,9 +69,8 @@ key of the host certificate.
 
 THe use of hardware (TPM) backed certificates for metadata encryption are
 natively supported through the use of
-[certtostore](https://github.com/google/certtostore) and the [Microsoft Crypto
-Next Generation
-API](https://msdn.microsoft.com/en-us/library/windows/desktop/aa376210\(v=vs.85\).aspx).
+[certtostore](https://github.com/google/certtostore) and the
+[Microsoft Crypto Next Generation API](https://msdn.microsoft.com/en-us/library/windows/desktop/aa376210\(v=vs.85\).aspx).
 
 #### Temporary Certificates
 

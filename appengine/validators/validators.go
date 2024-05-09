@@ -19,7 +19,7 @@ limitations under the License.
 package validators
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"errors"
 	"fmt"
 
@@ -42,8 +42,8 @@ type Basic struct {
 // that data passes basic integrity checks.
 func (d Basic) Check(ctx context.Context, req *models.Request) (server.StatusCode, error) {
 	switch {
-	case req.Hostname == "":
-		return server.StatusRequestHostBlank, errors.New("hostname is blank")
+	case req.Hostname == "" && req.GeneratorID == "":
+		return server.StatusRequestHostBlank, errors.New("hostname and generator_id are both blank")
 
 	case len(req.Hostname) > 15:
 		return server.StatusRequestHostLength, fmt.Errorf("hostname %s too long (got: %d, want: <15)", req.Hostname, len(req.Hostname))
@@ -57,7 +57,11 @@ func (d Basic) Check(ctx context.Context, req *models.Request) (server.StatusCod
 // New returns a slice containing all basic validators for
 // interactive requests.
 func New() ([]Validator, error) {
-	return []Validator{Basic{}}, nil
+	return []Validator{
+		Basic{},
+		GenericGeneratorChecks{},
+		PrefixGeneratorCheck{},
+	}, nil
 }
 
 // NewUnattended returns a slice containing all validators required
@@ -68,9 +72,5 @@ func NewUnattended() ([]Validator, error) {
 		return nil, fmt.Errorf("New() returned: %v", err)
 	}
 
-	g, err := NewGCE(nil)
-	if err != nil {
-		return nil, fmt.Errorf("NewGCE() returned %v", err)
-	}
-	return append(v, g), nil
+	return append(v, NewReuse()), nil
 }

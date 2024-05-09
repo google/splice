@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 /*
@@ -31,23 +32,34 @@ sent directly to EventLog.
 package main
 
 import (
-	"context"
+	"golang.org/x/net/context"
+	"errors"
 	"fmt"
 	"time"
 
-	metric "github.com/google/splice/spliced/metric"
+	metric "github.com/google/cabbie/metrics"
+	"github.com/google/deck"
 	"cloud.google.com/go/datastore"
+	"github.com/google/splice/generators"
 	"github.com/google/splice/models"
 	"github.com/google/splice/shared/certs"
 	"github.com/google/splice/shared/crypto"
 	"github.com/google/splice/shared/provisioning"
 	"github.com/google/splice/spliced/metric/tracker"
 	"github.com/google/splice/spliced/pubsub"
+	"github.com/google/splice/spliced/testing"
 )
 
 var (
 	conf    appcfg
 	metrics *tracker.Tracker
+
+	// MetricRoot sets metric path for all SpliceD metrics
+	metricRoot = "/splice/metrics"
+	// MetricSvc sets platform source for metrics.
+	metricSvc = "splice"
+
+	provisioner = provisioning.BinData
 )
 
 // ExitEvt holds an EventLog event explaining why the goroutine had to exit.
@@ -108,11 +120,11 @@ func returnRequest(ctx context.Context, reqID string, success bool, meta *crypto
 		trans.req.Status = models.RequestStatusCompleted
 		trans.req.ResponseKey = meta.AESKey
 		trans.req.CipherNonce = meta.Nonce
-		metrics.Get("join-success").Increment()
+		metrics.Get("join_success").Increment()
 	} else {
 		trans.req.Status = models.RequestStatusFailed
 
-		metrics.Get("join-fail").Increment()
+		metrics.Get("join_fail").Increment()
 	}
 
 	trans.req.CompletionTime = time.Now().UTC()
@@ -163,6 +175,37 @@ func permitReuse(req *models.Request) bool {
 	return req.AttemptReuse
 }
 
+func getName(req *models.Request) (string, error) {
+	if req.Hostname != "" {
+		return req.Hostname, nil
+	}
+	if req.GeneratorID == "" {
+		return "", errors.New("request must contain either Hostname or GeneratorID")
+	}
+	deck.InfofA("Attempting hostname generation using generator %s for request %s.", req.GeneratorID, req.RequestID).With(eventID(EvtNameGeneration)).Go()
+	return generators.Run(req.GeneratorID, req.GeneratorData)
+}
+
+func join(req *models.Request) ([]byte, error) {
+	wantName, err := getName(req)
+	if err != nil {
+		deck.WarningfA("Failed to determine a hostname for request %s: %v", req.RequestID, err).With(eventID(EvtErrNaming)).Go()
+		return nil, err
+	}
+
+	deck.InfofA("Attempting to join host %s to domain %s. Hostname reuse is set to %t.",
+		wantName, conf.Domain, permitReuse(req)).With(eventID(EvtJoinAttempt)).Go()
+	metrics.Get("join_attempt").Increment()
+	blob, err := provisioner(wantName, conf.Domain, permitReuse(req))
+	if err != nil {
+		deck.WarningfA("Failed to join host with: %v", err).With(eventID(EvtJoinFailure)).Go()
+		return nil, err
+	}
+
+	deck.InfofA("Computer object %q joined to domain %q", wantName, conf.Domain).With(eventID(EvtJoinSuccess)).Go()
+	return blob, nil
+}
+
 // processRequest takes a claimed request, performs any necessary
 // checks, processes it and always returns a metadata object
 // with the results. Errors in this func are considered non-fatal
@@ -170,68 +213,73 @@ func permitReuse(req *models.Request) bool {
 // the client.
 func processRequest(req *models.Request) (crypto.Metadata, error) {
 	meta := crypto.Metadata{}
-	if err := certs.VerifyCert(req.ClientCert, req.Hostname+"."+conf.Domain, conf.CaURL, conf.CaURLPath, conf.CaOrg, conf.RootsPath, conf.VerifyCert); err != nil {
-		elog.Warning(211, fmt.Sprintf("Client verification failed: %v", err))
-		metrics.Get("failure-211").Increment()
+
+	var fqdn string
+	if req.Hostname != "" {
+		fqdn = req.Hostname + "." + conf.Domain
+	}
+
+	if err := certs.VerifyCert(req.ClientCert, fqdn, conf.CaURL, conf.CaURLPath, conf.CaOrg, conf.RootsPath, conf.VerifyCert); err != nil {
+		deck.WarningfA("Client verification failed: %v", err).With(eventID(EvtErrVerification)).Go()
+		metrics.Get("failure_211").Increment()
 		meta.Data = []byte(err.Error())
 		return meta, err
 	}
 
-	var err error
-	elog.Info(209, fmt.Sprintf("Attempting to join host %s to domain %s. Hostname reuse is set to %t.", req.Hostname, conf.Domain, permitReuse(req)))
-	metrics.Get("join-attempt").Increment()
-	meta.Data, err = provisioning.BinData(req.Hostname, conf.Domain, permitReuse(req))
+	blob, err := join(req)
 	if err != nil {
-		elog.Warning(207, fmt.Sprintf("Failed to join host with: %v", err))
-		metrics.Get("failure-207").Increment()
+		metrics.Get("failure_207").Increment()
 		meta.Data = []byte(err.Error())
 		return meta, err
 	}
+	meta.Data = blob
 
 	if conf.EncryptBlob {
 		pub, err := certs.PublicKey(req.ClientCert)
 		if err != nil {
-			elog.Warning(212, fmt.Sprintf("Unable to obtain certificate public key: %v", err))
-			metrics.Get("failure-212").Increment()
+			deck.WarningfA("Unable to obtain certificate public key: %v", err).With(eventID(EvtErrEncryption)).Go()
+			metrics.Get("failure_212").Increment()
 			meta.Data = []byte(err.Error())
 			return meta, err
 		}
 
 		if err := meta.Encrypt(pub); err != nil {
-			elog.Warning(210, fmt.Sprintf("encryptMeta: %v", err))
-			metrics.Get("failure-210").Increment()
+			deck.WarningfA("encryptMeta: %v", err).With(eventID(EvtErrEncryption)).Go()
+			metrics.Get("failure_210").Increment()
 			meta.Data = []byte(err.Error())
 			return meta, err
 		}
 	}
 
-	elog.Info(209, fmt.Sprintf("Attempting to create or modify %q computer object in domain %q", req.Hostname, conf.Domain))
 	return meta, nil
 }
 
 // Run the splice daemon continuously, listening for new requests.
 func Run(ctx context.Context) ExitEvt {
+	if err := generators.ConfigureAll(); err != nil {
+		return ExitEvt{EvtErrStartup, fmt.Sprintf("Failed to configure generators. %v", err)}
+	}
 	client, err := pubsub.NewClient(ctx, conf.ProjectID)
 	if err != nil {
-		return ExitEvt{204, fmt.Sprintf("Failed to create client. %v", err)}
+		return ExitEvt{EvtErrSubscription, fmt.Sprintf("Failed to create client. %v", err)}
 	}
 	for {
-		elog.Info(200, "Awaiting join requests...")
+		deck.InfoA("Awaiting join requests...").With(eventID(EvtWaiting)).Go()
 		metrics.Get("waiting").Set(1)
 		reqID, err := pubsub.NewJoinRequest(ctx, client, conf.Topic)
 		metrics.Get("waiting").Set(0)
 		if err != nil {
-			metrics.Get("failure-205").Increment()
-			elog.Error(205, fmt.Sprintf("%v", err))
+			metrics.Get("failure_205").Increment()
+			deck.ErrorA(err).With(eventID(EvtErrSubscription)).Go()
 			time.Sleep(1 * time.Minute)
 			continue
 		}
 
-		elog.Info(200, fmt.Sprintf("NewJoinRequest: pulled message for processing, %v", reqID))
+		deck.InfofA("NewJoinRequest: pulled message for processing, %v", reqID).With(eventID(EvtNewRequest)).Go()
 		req, err := claimRequest(ctx, reqID)
 		if err != nil {
-			elog.Error(206, fmt.Sprintf("%v", err))
-			metrics.Get("failure-206").Increment()
+			deck.ErrorA(err).With(eventID(EvtErrClaim)).Go()
+			metrics.Get("failure_206").Increment()
 			continue
 		}
 
@@ -242,8 +290,8 @@ func Run(ctx context.Context) ExitEvt {
 		}
 
 		if err = returnRequest(ctx, reqID, success, &meta); err != nil {
-			elog.Error(208, fmt.Sprintf("%v", err))
-			metrics.Get("failure-208").Increment()
+			deck.ErrorA(err).With(eventID(EvtErrReturn)).Go()
+			metrics.Get("failure_208").Increment()
 		}
 		for i := range meta.Data {
 			meta.Data[i] = 0
@@ -256,33 +304,33 @@ func initMetrics() error {
 
 	// Counters
 	for _, name := range []string{
-		"failure-205",
-		"failure-206",
-		"failure-207",
-		"failure-208",
-		"failure-210",
-		"failure-211",
-		"failure-212",
-		"join-attempt",
-		"join-fail",
-		"join-success",
+		"failure_205",
+		"failure_206",
+		"failure_207",
+		"failure_208",
+		"failure_210",
+		"failure_211",
+		"failure_212",
+		"join_attempt",
+		"join_fail",
+		"join_success",
 	} {
-		m, err := metric.NewCounter(name)
+		m, err := metric.NewCounter(fmt.Sprintf("%s/%s", metricRoot, name), metricSvc)
 		if err != nil {
 			return err
 		}
-		metrics.Add(m)
+		metrics.Add(name, m)
 	}
 
 	// Gauges
 	for _, name := range []string{
 		"waiting",
 	} {
-		m, err := metric.NewGauge(name)
+		m, err := metric.NewInt(fmt.Sprintf("%s/%s", metricRoot, name), metricSvc)
 		if err != nil {
 			return err
 		}
-		metrics.Add(m)
+		metrics.Add(name, m)
 	}
 	return nil
 }
@@ -298,7 +346,7 @@ func Init() error {
 	if err != nil {
 		return fmt.Errorf("Could not obtain configuration from registry. %v", err)
 	}
-	elog.Info(201, fmt.Sprintf(
+	deck.InfofA(
 		"Application configured from registry.\n\n"+
 			"Domain: %v\n"+
 			"Svc name: %v\n"+
@@ -309,7 +357,8 @@ func Init() error {
 			"CA URL: %v\n"+
 			"CA URL Path: %v\n"+
 			"CA Expected Org: %v\n"+
-			"Permit reuse: %v",
+			"Permit reuse: %t\n"+
+			"Test backend: %t",
 		conf.Domain,
 		conf.Instance,
 		conf.ProjectID,
@@ -319,7 +368,14 @@ func Init() error {
 		conf.CaURL,
 		conf.CaURLPath,
 		conf.CaOrg,
-		conf.PermitReuse))
+		conf.PermitReuse,
+		conf.UseTestBackend).With(eventID(EvtConfiguration)).Go()
+
+	if conf.UseTestBackend {
+		backend := testing.NewInactiveDirectory()
+		provisioner = backend.Join
+		deck.WarningA("Test backend is enabled. Hosts will not join.").With(eventID(EvtConfiguration)).Go()
+	}
 
 	return nil
 }

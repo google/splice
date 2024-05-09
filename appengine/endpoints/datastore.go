@@ -17,12 +17,12 @@ limitations under the License.
 package endpoints
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"errors"
 	"fmt"
 	"time"
 
-	"google.golang.org/appengine"
+	"google.golang.org/appengine/v2"
 	"cloud.google.com/go/datastore"
 	"github.com/google/splice/appengine/server"
 	"github.com/google/splice/models"

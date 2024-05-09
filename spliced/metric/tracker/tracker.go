@@ -24,9 +24,7 @@ import (
 // Metric models a metric tracking the internal state of the SpliceD application.
 type Metric interface {
 	Increment() error
-	Name() string
 	Set(int64) error
-	Value() int64
 }
 
 // Tracker maintains a map of all internal metrics.
@@ -51,9 +49,9 @@ func (t *Tracker) Get(name string) Metric {
 }
 
 // Add adds a new metric to the tracker.
-func (t *Tracker) Add(m Metric) {
+func (t *Tracker) Add(name string, m Metric) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.counters[m.Name()] = m
+	t.counters[name] = m
 }

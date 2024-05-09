@@ -17,7 +17,7 @@ limitations under the License.
 package endpoints
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -26,15 +26,20 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
-	"google.golang.org/appengine"
-	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/v2"
+	"google.golang.org/appengine/v2/log"
+	"cloud.google.com/go/datastore"
 	"cloud.google.com/go/pubsub"
 	"github.com/google/splice/appengine/server"
 	basic "github.com/google/splice/appengine/validators"
 	"github.com/google/splice/models"
+)
+
+var (
+	// RequestExpiration sets time at which requests will expire from the Datastore.
+	RequestExpiration = 365 * 24 * time.Hour
 )
 
 // AttendedRequestHandler implements http.Handler for user interactive joins.
@@ -85,7 +90,7 @@ func requestResponse(ctx context.Context, w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(int(server.StatusSuccess))
+	w.WriteHeader(http.StatusOK)
 	w.Write(jsonResponse)
 
 	if resp.ErrorCode == server.StatusSuccess {
@@ -135,6 +140,7 @@ func ProcessRequest(ctx context.Context, w http.ResponseWriter, r *http.Request,
 	}
 
 	request.AcceptTime = time.Now()
+	request.ExpireAt = time.Now().Add(RequestExpiration)
 	request.Status = models.RequestStatusAccepted
 
 	// Initialize an empty datastore client at the appropriate scope.
@@ -238,10 +244,12 @@ func unmarshalRequest(r *http.Request) (models.Request, server.StatusCode, error
 	}
 
 	return models.Request{
-			Hostname:    clientRequest.Hostname,
-			ClientID:    clientRequest.ClientID,
-			ClientCert:  clientRequest.ClientCert,
-			GCEMetadata: clientRequest.GCEMetadata,
+			Hostname:      clientRequest.Hostname,
+			ClientID:      clientRequest.ClientID,
+			ClientCert:    clientRequest.ClientCert,
+			GCEMetadata:   clientRequest.GCEMetadata,
+			GeneratorID:   clientRequest.GeneratorID,
+			GeneratorData: clientRequest.GeneratorData,
 		},
 		server.StatusSuccess,
 		nil
@@ -267,7 +275,7 @@ func cleanupOrphans(ctx context.Context, dc *Client) error {
 	defer dc.RollbackTx()
 
 	// Cleanup requests by type because the datastore GetAll
-	// func contcatenates filters using AND.
+	// func concatenates filters using AND.
 	for _, kind := range s {
 		keys, requests, err := dc.FindOrphans(ctx, olderThan, kind)
 		if err != nil {
@@ -279,7 +287,7 @@ func cleanupOrphans(ctx context.Context, dc *Client) error {
 				orphan.Status = models.RequestStatusFailed
 				dc.Req = nil
 				dc.Req = &orphan
-				dc.Keys[0] = keys[i]
+				dc.Keys = []*datastore.Key{keys[i]}
 				if _, err = dc.Save(ctx); err != nil {
 					return err
 				}
@@ -307,14 +315,8 @@ func publishRequest(ctx context.Context, reqID string) error {
 	if err != nil {
 		return fmt.Errorf("pubsub.NewClient(%q) returned: %v", envProject, err)
 	}
+	defer ps.Close()
 
-	// Create topic if it doesn't exist.
-	_, err = ps.CreateTopic(ctx, envTopic)
-	if err != nil && !strings.Contains(err.Error(), "AlreadyExists") {
-		return fmt.Errorf("failed to create topic %q: %v", envTopic, err)
-	}
-
-	// CreateTopic doesn't return the topic if it already exists
 	topic := ps.Topic(envTopic)
 	defer topic.Stop()
 	res := topic.Publish(ctx, &pubsub.Message{Data: []byte(reqID)})

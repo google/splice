@@ -17,7 +17,7 @@ limitations under the License.
 package validators
 
 import (
-	"context"
+	"golang.org/x/net/context"
 	"testing"
 
 	"github.com/google/splice/appengine/server"
@@ -25,21 +25,26 @@ import (
 )
 
 func TestBasicValidatorSuccess(t *testing.T) {
-	test := struct {
+	tests := []struct {
 		name string
 		in   models.Request
 		out  server.StatusCode
-	}{
-		"Valid Request",
+	}{{
+		"Valid Hostname",
 		models.Request{Hostname: "Splice1234-W", ClientID: "1"},
 		server.StatusSuccess,
-	}
+	}, {
+		"Valid Generator ID",
+		models.Request{GeneratorID: "generator1", ClientID: "1"},
+		server.StatusSuccess,
+	}}
 
-	validator := &Basic{}
-	want := test.out
-
-	if got, err := validator.Check(context.Background(), &test.in); err != nil || got != want {
-		t.Errorf("test '%s'; got = %d, want = %d, err = %v", test.name, got, want, err)
+	for _, tt := range tests {
+		validator := &Basic{}
+		want := tt.out
+		if got, err := validator.Check(context.Background(), &tt.in); err != nil || got != want {
+			t.Errorf("test '%s'; got = %d, want = %d, err = %v", tt.name, got, want, err)
+		}
 	}
 }
 

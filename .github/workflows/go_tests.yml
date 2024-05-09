@@ -1,0 +1,65 @@
+name: Go Tests
+on: [push, pull_request]
+jobs:
+  app_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.22.x
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        uses: google-github-actions/setup-gcloud@v0
+        with:
+          install_components: 'app-engine-python,app-engine-go,cloud-datastore-emulator'
+
+      - name: Run vet
+        run: go vet ./appengine/...
+
+      - name: Build
+        run: go build ./appengine/...
+
+      # - name: Test
+      #  run: go test -v ./appengine/...
+  cli_tests:
+    runs-on: windows-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.22.x
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Run vet
+        run: go vet ./cli/...
+
+      - name: Build
+        run: go build ./cli/...
+
+      - name: Test
+        run: go test -v ./cli/...
+  spliced_tests:
+    runs-on: windows-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.22.x
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Run vet
+        run: go vet ./spliced/...
+
+      - name: Build
+        run: go build ./spliced/...
+
+      - name: Test
+        run: go test -v ./spliced/...
