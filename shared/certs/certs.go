@@ -28,9 +28,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -48,7 +49,7 @@ type Certificate struct {
 func (c *Certificate) Generate(cn string, notBefore, notAfter time.Time) error {
 	// A proposed computer name must always satisfy MS naming conventions.
 	// https://support.microsoft.com/en-us/help/909264/naming-conventions-in-active-directory-for-computers-domains-sites-and
-	invalidName, err := regexp.MatchString(`^$|^\.|[\\/:*?"<>|]|.{15,}$`, cn)
+	invalidName, err := regexp.MatchString(`^$|^\.|[\\/:*?"<>|]|.{16,}$`, cn)
 	if invalidName || err != nil {
 		return fmt.Errorf("cn(%s) is invalid or empty, regexp.MatchString returned %v", cn, err)
 	}
@@ -154,7 +155,7 @@ func VerifyCert(c []byte, hostname, base, path, caOrg, roots string, verify bool
 
 	// If file roots are configured, fetch more roots from the file.
 	if roots != "" {
-		pem, err := ioutil.ReadFile(roots)
+		pem, err := os.ReadFile(roots)
 		if err != nil {
 			return fmt.Errorf("error reading %q: %v", roots, err)
 		}
@@ -228,7 +229,7 @@ func fetchIssuer(c *x509.Certificate, base string, path string) (*x509.Certifica
 		return nil, fmt.Errorf("response status != %v: %v", http.StatusOK, resp.Status)
 	}
 
-	raw, err := ioutil.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

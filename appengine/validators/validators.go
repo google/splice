@@ -72,10 +72,5 @@ func NewUnattended() ([]Validator, error) {
 		return nil, fmt.Errorf("New() returned: %v", err)
 	}
 
-	g, err := NewGCE(nil)
-	if err != nil {
-		return nil, fmt.Errorf("NewGCE() returned %v", err)
-	}
-
-	return append(v, g, NewReuse()), nil
+	return append(v, NewReuse()), nil
 }

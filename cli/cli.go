@@ -29,10 +29,13 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	appclient "github.com/google/splice/cli/appclient"
+	"github.com/google/deck/backends/eventlog"
+	"github.com/google/deck"
 	"github.com/google/certtostore"
 	"github.com/google/splice/appengine/server"
 	"github.com/google/splice/models"
@@ -43,6 +46,7 @@ import (
 
 const (
 	pollMaxRetries = 100
+	svcName        = "Splice-CLI"
 )
 
 var (
@@ -213,6 +217,8 @@ func checkFlags() error {
 		return errors.New("-encrypt requires either -generate_cert or -cert_issuer")
 	case *encrypt && *generateCert && *certIssuers != "":
 		return errors.New("-encrypt is not supported with both -generate_cert and -cert_issuer")
+	case *generateCert && *myName == "":
+		return errors.New("-generate_cert requires -name")
 	}
 
 	if !strings.HasPrefix(*serverAddr, "http") {
@@ -230,25 +236,36 @@ func checkFlags() error {
 	return nil
 }
 
+func logAndExit(eid uint32, msg string) {
+	deck.ErrorA(msg).With(eventlog.EventID(eid)).Go()
+	log.Fatal(msg)
+}
+
 func main() {
-	var err error
+	evt, err := eventlog.Init(svcName)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	deck.Add(evt)
+	defer deck.Close()
 
 	if err = checkFlags(); err != nil {
-		log.Fatal(err.Error())
+		logAndExit(EvtErrStartup, err.Error())
 	}
 
 	var cert certs.Certificate
 	if len(issuers) >= 1 {
 		store, err := certs.NewStore(*certContainer, issuers, intermediates)
 		if err != nil {
-			log.Fatalf("error opening certificate store: %v", err)
+			logAndExit(EvtErrCertificate, fmt.Sprintf("error opening certificate store: %v", err))
 		}
 		defer store.Close()
 
 		var ctx certs.Context
 		cert, ctx, err = store.Find()
 		if err != nil || cert.Cert == nil || cert.Decrypter == nil {
-			log.Fatalf("error locating client certificate for issuers '%v': %v", issuers, err)
+			logAndExit(EvtErrCertificate, fmt.Sprintf("error locating client certificate for issuers '%v': %v", issuers, err))
 		}
 		defer ctx.Close()
 	}
@@ -259,7 +276,7 @@ func main() {
 			notAfter := time.Now().Add(time.Hour * 24 * 365 * 1)
 			err = cert.Generate(*myName, notBefore, notAfter)
 			if err != nil {
-				log.Fatalf("error generating self-signed certificate: %v", err)
+				logAndExit(EvtErrEncryption, fmt.Sprintf("error generating self-signed certificate: %v", err))
 			}
 		}
 		fmt.Println("Requesting encryption with public key.")
@@ -277,7 +294,7 @@ func main() {
 	} else {
 		computer, err := certtostore.CompProdInfo()
 		if err != nil {
-			log.Fatalf("certtostore.CompInfo returned %v", err)
+			logAndExit(EvtErrCertificate, fmt.Sprintf("certtostore.CompInfo returned %v", err))
 		}
 		clientID = computer.UUID
 	}
@@ -286,24 +303,24 @@ func main() {
 	if !*unattended {
 		c, err = appclient.Connect(*serverAddr, *username)
 		if err != nil {
-			log.Fatalf("SSO error: %v", err)
+			logAndExit(EvtErrConnection, fmt.Sprintf("SSO error: %v", err))
 		}
 	} else {
 		c, err = appclient.TLSClient(cert.Cert.Raw, cert.Decrypter)
 		if err != nil {
-			log.Fatalf("error during TLS client setup: %v", err)
+			logAndExit(EvtErrConnection, fmt.Sprintf("error during TLS client setup: %v", err))
 		}
 	}
 
 	reqID, err := request(c, clientID, cert)
 	if err != nil {
-		log.Fatalf("request: %v", err)
+		logAndExit(EvtErrRequest, fmt.Sprintf("request: %v", err))
 	}
 	fmt.Println("Successfully submitted join request.")
 
 	resp, err := resultPoll(c, reqID, clientID)
 	if err != nil {
-		log.Fatalf("resultPoll: %v\n", err)
+		logAndExit(EvtErrPoll, fmt.Sprintf("resultPoll: %v\n", err))
 	}
 	meta := metadata.Metadata{
 		Data:   resp.ResponseData,
@@ -314,15 +331,18 @@ func main() {
 	if *encrypt {
 		meta.Data, err = meta.Decrypt(cert.Decrypter)
 		if err != nil {
-			log.Fatalf("error decrypting metadata: %v", err)
+			logAndExit(EvtErrEncryption, fmt.Sprintf("error decrypting metadata: %v", err))
 		}
 	}
 
 	if *reallyJoin {
 		if err := provisioning.OfflineJoin(meta.Data); err != nil {
-			log.Fatalf("error applying join metadata to host: %v", err)
+			logAndExit(EvtErrJoin, fmt.Sprintf("error applying join metadata to host: %v", err))
 		}
-		fmt.Println("Successfully joined the domain! Reboot required to complete domain join.")
+		msg := "Successfully joined the domain! Reboot required to complete domain join."
+		deck.InfoA(msg).With(eventlog.EventID(EvtJoinSuccess)).Go()
+		fmt.Println(msg)
+
 	} else {
 		fmt.Println("Metadata received but skipping application without -really_join")
 	}

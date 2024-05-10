@@ -17,7 +17,7 @@ package validators
 import (
 	"golang.org/x/net/context"
 
-	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/v2/log"
 	"github.com/google/splice/appengine/server"
 	"github.com/google/splice/models"
 )

@@ -37,7 +37,7 @@ const (
 
 const (
 	//
-	// Request-releated events
+	// Request-related events
 	//
 
 	// EvtNewRequest indicates a receipt of a new request
@@ -75,7 +75,7 @@ const (
 
 const (
 	//
-	// Request-releated errors
+	// Request-related errors
 	//
 
 	// EvtErrVerification indicates an error in request verification

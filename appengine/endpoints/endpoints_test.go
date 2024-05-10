@@ -27,8 +27,8 @@ import (
 	"os"
 	"testing"
 
-	"google.golang.org/appengine/aetest"
-	"google.golang.org/appengine"
+	"google.golang.org/appengine/v2/aetest"
+	"google.golang.org/appengine/v2"
 	"github.com/google/splice/appengine/server"
 	"github.com/google/splice/appengine/validators"
 	"github.com/google/splice/models"
