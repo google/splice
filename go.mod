@@ -7,7 +7,7 @@ require (
 	cloud.google.com/go/pubsub v1.30.0
 	github.com/google/cabbie v1.0.2
 	github.com/google/certtostore v1.0.2
-	github.com/google/deck v0.0.0-20221206151953-9363e9de5515
+	github.com/google/deck v1.1.0
 	github.com/google/glazier v0.0.0-20210617205946-bf91b619f5d4
 	github.com/google/go-cmp v0.5.9
 	github.com/pkg/errors v0.9.1
