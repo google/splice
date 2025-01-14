@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//Package provisioning provides Windows-specific functionality for joining hosts to a domain.
+// Package provisioning provides Windows-specific functionality for joining hosts to a domain.
 package provisioning
 
 import (
@@ -107,7 +107,7 @@ func OfflineJoin(metadata []byte) error {
 		uintptr(unsafe.Pointer(ptrWinders)),    // _In_ LPCWSTR lpWindowsPath
 	)
 	if r != 0 {
-		err = fmt.Errorf("NetRequestOfflineDomainJoin failed to return successfully (%x,%v)", r, err)
+		err = fmt.Errorf("NetRequestOfflineDomainJoin failure (0x%x)", r)
 		return err
 	}
 
