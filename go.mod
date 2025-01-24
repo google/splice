@@ -5,15 +5,15 @@ go 1.18
 require (
 	cloud.google.com/go/datastore v1.11.0
 	cloud.google.com/go/pubsub v1.30.0
-	github.com/google/cabbie v1.0.2
-	github.com/google/certtostore v1.0.2
-	github.com/google/deck v0.0.0-20221206151953-9363e9de5515
-	github.com/google/glazier v0.0.0-20210617205946-bf91b619f5d4
-	github.com/google/go-cmp v0.5.9
+	github.com/google/cabbie v1.0.5
+	github.com/google/certtostore v1.0.3
+	github.com/google/deck v1.1.0
+	github.com/google/glazier v0.0.0-20240702204548-ecffa77d6f73
+	github.com/google/go-cmp v0.6.0
 	github.com/pkg/errors v0.9.1
 	go.uber.org/atomic v1.9.0
 	golang.org/x/net v0.23.0
-	golang.org/x/sys v0.18.0
+	golang.org/x/sys v0.21.0
 	google.golang.org/appengine/v2 v2.0.1
 )
 
@@ -22,11 +22,10 @@ require (
 	cloud.google.com/go/compute v1.19.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v0.13.0 // indirect
-	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
+	github.com/StackExchange/wmi v1.2.0 // indirect
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/logger v1.1.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.1 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
