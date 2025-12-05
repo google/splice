@@ -99,13 +99,13 @@ func post(c client, msg interface{}, addr string) (*models.Response, error) {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode < http.StatusOK || res.StatusCode > http.StatusIMUsed {
-		return nil, fmt.Errorf("invalid response code received for request: %d", res.StatusCode)
-	}
-
 	respBody, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading response body: %v", err)
+	}
+
+	if res.StatusCode < http.StatusOK || res.StatusCode > http.StatusIMUsed {
+		return nil, fmt.Errorf("invalid response code received for request: %d with body: %s", res.StatusCode, respBody)
 	}
 
 	resp := &models.Response{}
