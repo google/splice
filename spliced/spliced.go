@@ -198,7 +198,7 @@ func join(req *models.Request) ([]byte, error) {
 	metrics.Get("join_attempt").Increment()
 	blob, err := provisioner(wantName, conf.Domain, permitReuse(req))
 	if err != nil {
-		deck.WarningfA("Failed to join host with: %v", err).With(eventID(EvtJoinFailure)).Go()
+		deck.WarningfA("Failed to join host %s to domain %s (reuse=%t) with: %v", wantName, conf.Domain, permitReuse(req), err).With(eventID(EvtJoinFailure)).Go()
 		return nil, err
 	}
 

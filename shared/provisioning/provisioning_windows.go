@@ -149,7 +149,7 @@ func TextData(hostname, domain string, reuse, djoinCompat bool) ([]byte, error) 
 		uintptr(unsafe.Pointer(&buff)),       //_Out_opt_ LPWSTR  *pProvisionTextData
 	)
 	if r != 0 {
-		return result, errnoErr(syscall.Errno(r))
+		return result, fmt.Errorf("%v: Win32 error %d", errnoErr(syscall.Errno(r)), r)
 	}
 
 	for i := range buff {
@@ -192,7 +192,7 @@ func BinData(hostname string, domain string, reuse bool) ([]byte, error) {
 		0,                                    //_Out_opt_ LPWSTR  *pProvisionTextData
 	)
 	if r != 0 {
-		return buff[:binSize], errnoErr(syscall.Errno(r))
+		return buff[:binSize], fmt.Errorf("%v: Win32 error %d", errnoErr(syscall.Errno(r)), r)
 	}
 
 	return buff[:binSize], nil
