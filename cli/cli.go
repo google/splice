@@ -114,7 +114,7 @@ func post(c client, msg interface{}, addr string) (*models.Response, error) {
 		if *verbose {
 			msg = fmt.Sprintf("%s (body: %s)", msg, respBody)
 		}
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 	return resp, nil
 }
