@@ -242,9 +242,9 @@ func logAndExit(eid uint32, msg string) {
 }
 
 func main() {
-	evt, err := eventlog.Init(svcName)
+	evt, err := eventlog.InitWithDefaultInstall(svcName)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("eventlog.InitWithDefaultInstall(%s) returned %v", svcName, err)
 		os.Exit(1)
 	}
 	deck.Add(evt)
