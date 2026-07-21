@@ -24,7 +24,7 @@ const (
 	//
 
 	// EvtJoinSuccess indicates a successful join operation
-	EvtJoinSuccess = iota + 10000
+	EvtJoinSuccess = iota + 100
 )
 
 /*
@@ -37,7 +37,7 @@ const (
 	//
 
 	// EvtErrStartup indicates an error starting the service
-	EvtErrStartup = iota + 10200
+	EvtErrStartup = iota + 200
 	// EvtErrCertificate indicates an miscellaneous certificate error
 	EvtErrCertificate
 )
@@ -48,7 +48,7 @@ const (
 	//
 
 	// EvtErrEncryption indicates an error encrypting a payload
-	EvtErrEncryption = iota + 10300
+	EvtErrEncryption = iota + 300
 	// EvtErrConnection indicates an error connecting to appengine
 	EvtErrConnection
 	// EvtErrRequest indicates an error with the splice request
