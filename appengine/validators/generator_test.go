@@ -41,10 +41,11 @@ func TestGenericGeneratorCheck(t *testing.T) {
 			server.StatusRequestGeneratorError,
 		},
 	}
-	ctx, err := fakeContext()
+	ctx, cleanup, err := fakeContext()
 	if err != nil {
 		t.Fatalf("fakeContext: %v", err)
 	}
+	defer cleanup()
 	validator := GenericGeneratorChecks{}
 	for _, tt := range tests {
 		out, _ := validator.Check(ctx, tt.req)
@@ -75,10 +76,11 @@ func TestPrefixGeneratorCheck(t *testing.T) {
 			&models.Request{GeneratorID: "prefix", GeneratorData: []byte("unexpected")},
 			&models.Request{GeneratorID: "prefix", GeneratorData: nil}},
 	}
-	ctx, err := fakeContext()
+	ctx, cleanup, err := fakeContext()
 	if err != nil {
 		t.Fatalf("fakeContext: %v", err)
 	}
+	defer cleanup()
 	validator := PrefixGeneratorCheck{}
 	for _, tt := range tests {
 		validator.Check(ctx, tt.req)

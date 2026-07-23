@@ -30,10 +30,11 @@ func TestReuse(t *testing.T) {
 		{"Reuse Allowed", true},
 		{"Reuse Disabled", false},
 	}
-	ctx, err := fakeContext()
+	ctx, cleanup, err := fakeContext()
 	if err != nil {
 		t.Fatalf("fakeContext: %v", err)
 	}
+	defer cleanup()
 	for _, tt := range tests {
 		req := models.Request{}
 		if err := os.Setenv("REJOIN_ALLOWED", strconv.FormatBool(tt.enabled)); err != nil {

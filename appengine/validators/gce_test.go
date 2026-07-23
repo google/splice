@@ -26,14 +26,15 @@ import (
 )
 
 // fakeContext is primarily used to provide an appengine Context for test purposes.
-func fakeContext() (context.Context, error) {
+func fakeContext() (context.Context, func(), error) {
 	inst, err := aetest.NewInstance(nil)
 	if err != nil {
-		return nil, fmt.Errorf("aetest.NewInstance: %v", err)
+		return nil, nil, fmt.Errorf("aetest.NewInstance: %v", err)
 	}
 	r, err := inst.NewRequest("POST", "/bogus", bytes.NewReader([]byte("test")))
 	if err != nil {
-		return nil, fmt.Errorf("inst.NewRequest: %v", err)
+		inst.Close()
+		return nil, nil, fmt.Errorf("inst.NewRequest: %v", err)
 	}
-	return appengine.NewContext(r), nil
+	return appengine.NewContext(r), func() { inst.Close() }, nil
 }
