@@ -14,6 +14,13 @@ jobs:
         with:
           go-version: 1.25.x
 
+      # dev_appserver.py (run by aetest via python3 on PATH) imports cgi, which
+      # Python 3.13 removed.
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Install dependencies
         uses: google-github-actions/setup-gcloud@v0
         with:
